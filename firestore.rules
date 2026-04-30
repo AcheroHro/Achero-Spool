@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Projects
+    function isValidProject(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100
+          && data.ownerId == request.auth.uid
+          && data.createdAt == request.time;
+    }
+
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && isOwner(existing().ownerId);
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      
+      allow create: if isSignedIn() 
+          && isValidId(projectId)
+          && isValidProject(incoming())
+          && incoming().keys().hasAll(['name', 'ownerId', 'createdAt'])
+          && incoming().keys().size() == 3;
+
+      allow update: if isSignedIn()
+          && isOwner(existing().ownerId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().name is string && incoming().name.size() > 0
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name']);
+
+      allow delete: if isSignedIn() && isOwner(existing().ownerId);
+
+      // Spools
+      function isValidSpool(data) {
+        return data.projectId == projectId
+            && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+            && data.ownerId == request.auth.uid
+            && data.drawingData is map
+            && data.createdAt == request.time
+            && data.updatedAt == request.time;
+      }
+
+      match /spools/{spoolId} {
+        allow get: if isSignedIn() && isOwner(existing().ownerId);
+        allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isSignedIn()
+            && isValidId(spoolId)
+            && isValidSpool(incoming())
+            && get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid
+            && incoming().keys().hasAll(['projectId', 'name', 'ownerId', 'drawingData', 'createdAt', 'updatedAt'])
+            && incoming().keys().size() >= 6;
+
+        allow update: if isSignedIn()
+            && isOwner(existing().ownerId)
+            && incoming().ownerId == existing().ownerId
+            && incoming().projectId == existing().projectId
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == request.time
+            && (
+              // Action: Rename
+              (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt']) 
+               && incoming().name is string && incoming().name.size() > 0) ||
+              // Action: Save Drawing
+              (incoming().diff(existing()).affectedKeys().hasOnly(['drawingData', 'bom', 'updatedAt']) 
+               && incoming().drawingData is map)
+            );
+
+        allow delete: if isSignedIn() && isOwner(existing().ownerId);
+      }
+    }
+  }
+}
