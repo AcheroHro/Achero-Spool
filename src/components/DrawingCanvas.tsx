@@ -37,7 +37,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const GRID_SIZE = 20;
+const GRID_SIZE = 5;
 const PIPE_STROKE_WIDTH = 1.25;
 const PIPE_HIT_STROKE_WIDTH = 14;
 const ACCESSORY_BASE_SIZE = 30;
@@ -751,10 +751,12 @@ export const DrawingCanvas: React.FC = () => {
     currentDiameter,
     selectedId,
     selectedIds,
+    addDiameter,
     addElement,
     updateElement,
     updatePipeLength,
     updateLabelOffset,
+    setDiameter,
     setSelectedId,
     setSelectedIds,
     moveElements,
@@ -1196,7 +1198,16 @@ export const DrawingCanvas: React.FC = () => {
     if (newSelectedIds.length === 1) {
       const singleEl = elements.find((e) => e.id === newSelectedIds[0]);
       if (singleEl?.type === "pipe") {
+        if (singleEl.diameter) {
+          addDiameter(singleEl.diameter);
+          setDiameter(singleEl.diameter);
+        }
         setEditingLength(singleEl.customLabels?.main || ((singleEl.length || 0) * 50).toFixed(0));
+      } else if (singleEl?.type === "accessory") {
+        if (singleEl.diameter) {
+          addDiameter(singleEl.diameter);
+          setDiameter(singleEl.diameter);
+        }
       } else if (singleEl?.type === "support") {
         setEditingPrev(singleEl.customLabels?.prev || "");
         setEditingNext(singleEl.customLabels?.next || "");
