@@ -83,10 +83,12 @@ export const exportToPDF = (elements: DrawingElement[], spoolName: string, proje
 
   // Calculate BOM data
   const pipeStats: any[] = [];
+  const pipeDetailRows: any[] = [];
   const accessoryStats: any[] = [];
   const supportStats: any[] = [];
 
   const pipesByDiameter: Record<number, { total: number, count: number }> = {};
+  const pipeCountByDiameter: Record<number, number> = {};
   const accessories: Record<string, Record<number, number>> = {};
   const supports: Record<string, Record<number, number>> = {};
 
@@ -102,6 +104,12 @@ export const exportToPDF = (elements: DrawingElement[], spoolName: string, proje
       }
       pipesByDiameter[diameter].total += lengthMm;
       pipesByDiameter[diameter].count += 1;
+      pipeCountByDiameter[diameter] = (pipeCountByDiameter[diameter] || 0) + 1;
+      pipeDetailRows.push([
+        `Niple #${pipeCountByDiameter[diameter]}`,
+        `Ø ${diameter}"`,
+        `${lengthMm.toFixed(0)} mm`
+      ]);
     } else if (el.type === 'accessory' && el.accessoryType) {
       if (!accessories[el.accessoryType]) accessories[el.accessoryType] = {};
       accessories[el.accessoryType][diameter] = (accessories[el.accessoryType][diameter] || 0) + 1;
@@ -138,6 +146,29 @@ export const exportToPDF = (elements: DrawingElement[], spoolName: string, proje
     headStyles: { fillColor: [41, 128, 185], textColor: 255 },
     styles: { fontSize: 9 }
   });
+
+  if (pipeDetailRows.length > 0) {
+    const summaryTable = (doc as any).lastAutoTable;
+    const startY = (summaryTable?.finalY || 30) + 12;
+
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text('Detalle de Niples', 10, startY - 3);
+
+    autoTable(doc, {
+      startY,
+      head: [['Niple', 'Diametro', 'Medida']],
+      body: pipeDetailRows,
+      theme: 'grid',
+      headStyles: { fillColor: [22, 163, 74], textColor: 255 },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 45 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 45 }
+      }
+    });
+  }
 
   const safeFilename = `${projectName}_${spoolName}`.replace(/[<>:"/\\|?*]/g, '_');
   doc.save(`${safeFilename}.pdf`);
