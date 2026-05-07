@@ -132,13 +132,16 @@ function jsonp<T>(payload: Record<string, unknown>): Promise<T> {
 
 async function postNoPopup(payload: Record<string, unknown>) {
   ensureConfigured();
+  const body = new URLSearchParams();
+  body.set('payload', JSON.stringify(payload));
+
   await fetch(APPS_SCRIPT_URL!, {
     method: 'POST',
     mode: 'no-cors',
     headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
     },
-    body: JSON.stringify(payload)
+    body
   });
 }
 
