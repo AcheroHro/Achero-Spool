@@ -193,7 +193,7 @@ export const sheetsApi = {
   },
 
   async updateSpool(user: AppUser, spool: Pick<SpoolRecord, 'id' | 'projectId' | 'drawingData' | 'bom'>) {
-    await postNoPopup(buildPayload('updateSpool', {
+    await jsonp<{ updated: boolean }>(buildPayload('updateSpool', {
       ownerId: user.uid,
       ownerEmail: user.email,
       spool: {
