@@ -1974,6 +1974,7 @@ export const DrawingCanvas: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
+                    title="Longitud"
                     value={editingLength}
                     onChange={(e) => setEditingLength(e.target.value)}
                     className="w-20 bg-black/40 text-white text-[16px] md:text-sm p-2 rounded-lg border border-white/10 outline-none focus:border-blue-500"
@@ -1983,6 +1984,7 @@ export const DrawingCanvas: React.FC = () => {
                   />
                   <span className="text-xs text-gray-400 font-mono">mm</span>
                   <button
+                    title="Confirmar longitud"
                     onClick={handleUpdateLength}
                     className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors flex-shrink-0"
                   >
@@ -2008,6 +2010,7 @@ export const DrawingCanvas: React.FC = () => {
                       </span>
                       <input
                         type="text"
+                        title="Cota anterior"
                         value={editingPrev}
                         onChange={(e) => setEditingPrev(e.target.value)}
                         onBlur={handleUpdateSupportLabels}
@@ -2024,6 +2027,7 @@ export const DrawingCanvas: React.FC = () => {
                       </span>
                       <input
                         type="text"
+                        title="Cota siguiente"
                         value={editingNext}
                         onChange={(e) => setEditingNext(e.target.value)}
                         onBlur={handleUpdateSupportLabels}
@@ -2035,6 +2039,7 @@ export const DrawingCanvas: React.FC = () => {
                       />
                     </div>
                     <button
+                      title="Confirmar cotas"
                       onClick={handleUpdateSupportLabels}
                       className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors flex-shrink-0"
                     >
@@ -2119,6 +2124,7 @@ export const DrawingCanvas: React.FC = () => {
           <div className="w-px h-10 bg-white/5 mx-1" />
 
           <button
+            title="Cerrar selección"
             onClick={() => setSelectedIds([])}
             className="p-2 text-gray-500 hover:text-white transition-colors"
           >
@@ -2154,6 +2160,7 @@ export const DrawingCanvas: React.FC = () => {
               Capas
             </h3>
             <button
+              title="Cerrar panel de capas"
               onClick={() => setShowLayerPanel(false)}
               className="text-white/30 hover:text-white"
             >
@@ -2177,6 +2184,7 @@ export const DrawingCanvas: React.FC = () => {
                   {editingLayerId === layer.id ? (
                     <input
                       autoFocus
+                      title="Nombre de la capa"
                       className="bg-black/20 text-white text-sm px-2 py-1 rounded outline-none border border-blue-500/30"
                       value={newLayerName}
                       onChange={(e) => setNewLayerName(e.target.value)}
@@ -2211,6 +2219,7 @@ export const DrawingCanvas: React.FC = () => {
 
                 <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                   <button
+                    title={layer.visible ? "Ocultar capa" : "Mostrar capa"}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleLayerVisibility(layer.id);
@@ -2223,6 +2232,7 @@ export const DrawingCanvas: React.FC = () => {
                     {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
                   </button>
                   <button
+                    title={layer.locked ? "Desbloquear capa" : "Bloquear capa"}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleLayerLock(layer.id);
@@ -2235,6 +2245,7 @@ export const DrawingCanvas: React.FC = () => {
                     {layer.locked ? <Lock size={14} /> : <Unlock size={14} />}
                   </button>
                   <button
+                    title="Editar nombre de capa"
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingLayerId(layer.id);
@@ -2246,6 +2257,7 @@ export const DrawingCanvas: React.FC = () => {
                   </button>
                   {layer.id !== "default-layer" && (
                     <button
+                      title="Eliminar capa"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteLayer(layer.id);

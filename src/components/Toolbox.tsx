@@ -97,6 +97,7 @@ export const Toolbox: React.FC = () => {
         <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-2 px-1 text-center">Diámetro</p>
         <div className="flex flex-col gap-1">
           <select 
+            title="Seleccionar diámetro"
             value={currentDiameter}
             onChange={(e) => setDiameter(Number(e.target.value))}
             className="w-full bg-[#2c2e33] text-white text-[10px] p-2 rounded-lg border border-gray-700 outline-none focus:border-blue-500 appearance-none text-center cursor-pointer"
@@ -402,10 +403,10 @@ export const Toolbox: React.FC = () => {
           </button>
         </div>
         <div className="grid grid-cols-2 gap-1">
-          <button onClick={undo} className="p-2 bg-[#2c2e33] text-gray-400 rounded-lg hover:bg-[#343a40] active:scale-90 transition-transform">
+          <button onClick={undo} title="Deshacer" className="p-2 bg-[#2c2e33] text-gray-400 rounded-lg hover:bg-[#343a40] active:scale-90 transition-transform">
             <Undo2 size={16} className="mx-auto" />
           </button>
-          <button onClick={redo} className="p-2 bg-[#2c2e33] text-gray-400 rounded-lg hover:bg-[#343a40] active:scale-90 transition-transform">
+          <button onClick={redo} title="Rehacer" className="p-2 bg-[#2c2e33] text-gray-400 rounded-lg hover:bg-[#343a40] active:scale-90 transition-transform">
             <Redo2 size={16} className="mx-auto" />
           </button>
         </div>
@@ -438,7 +439,9 @@ const ReducerIcon = ({ size }: { size: number }) => (
   <img 
     src="/reducer-icon.png" 
     alt="Reductor" 
-    style={{ width: size, height: size, borderRadius: '4px', objectFit: 'cover' }}
+    width={size}
+    height={size}
+    className="rounded object-cover"
     onError={(e) => {
       // Fallback a SVG si la imagen no existe
       e.currentTarget.style.display = 'none';
@@ -450,13 +453,13 @@ const ReducerIcon = ({ size }: { size: number }) => (
 );
 
 const ReducerSvgFallback = ({ size }: { size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'none' }}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="hidden">
     <path d="M6 8 L18 10 L18 14 L6 16 Z" />
   </svg>
 );
 
 const ReducerIconWrapper = ({ size }: { size: number }) => (
-  <div style={{ position: 'relative', width: size, height: size }}>
+  <div className="relative" style={{ width: size, height: size }}>
     <ReducerIcon size={size} />
     <ReducerSvgFallback size={size} />
   </div>
@@ -466,7 +469,9 @@ const BridaIcon = ({ size }: { size: number }) => (
   <img 
     src="/brida-icon.png" 
     alt="Brida" 
-    style={{ width: size, height: size, borderRadius: '4px', objectFit: 'cover' }}
+    width={size}
+    height={size}
+    className="rounded object-cover"
     onError={(e) => {
       e.currentTarget.style.display = 'none';
       if (e.currentTarget.nextElementSibling) {
@@ -477,11 +482,11 @@ const BridaIcon = ({ size }: { size: number }) => (
 );
 
 const BridaSvgFallback = ({ size }: { size: number }) => (
-  <Disc size={size} style={{ display: 'none' }} />
+  <Disc size={size} className="hidden" />
 );
 
 const BridaIconWrapper = ({ size }: { size: number }) => (
-  <div style={{ position: 'relative', width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+  <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
     <BridaIcon size={size} />
     <BridaSvgFallback size={size} />
   </div>
