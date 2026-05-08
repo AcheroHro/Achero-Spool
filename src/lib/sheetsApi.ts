@@ -37,9 +37,14 @@ type ApiAction =
   | 'createProject'
   | 'deleteProject'
   | 'createSpool'
-  | 'updateSpool';
+  | 'updateSpool'
+  | 'deleteSpool'
+  | 'renameSpool';
 
 const USER_STORAGE_KEY = 'achero_spool_user';
+const BACKUP_KEY_PREFIX = 'achero_spool_backup_';
+
+// ─── Auth helpers ────────────────────────────────────────────────────────────
 
 function ensureConfigured() {
   if (!APPS_SCRIPT_URL) {
@@ -80,6 +85,35 @@ export function storeUser(user: AppUser) {
 export function clearStoredUser() {
   localStorage.removeItem(USER_STORAGE_KEY);
 }
+
+// ─── Offline backup helpers ───────────────────────────────────────────────────
+
+export function saveLocalBackup(spoolId: string, data: DrawingState) {
+  try {
+    localStorage.setItem(
+      `${BACKUP_KEY_PREFIX}${spoolId}`,
+      JSON.stringify({ data, savedAt: new Date().toISOString() })
+    );
+  } catch {
+    // localStorage puede estar lleno — ignorar silenciosamente
+  }
+}
+
+export function getLocalBackup(spoolId: string): { data: DrawingState; savedAt: string } | null {
+  try {
+    const raw = localStorage.getItem(`${BACKUP_KEY_PREFIX}${spoolId}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function clearLocalBackup(spoolId: string) {
+  localStorage.removeItem(`${BACKUP_KEY_PREFIX}${spoolId}`);
+}
+
+// ─── API transport ────────────────────────────────────────────────────────────
 
 function buildPayload(action: ApiAction, data: Record<string, unknown>) {
   return {
@@ -130,30 +164,27 @@ function jsonp<T>(payload: Record<string, unknown>): Promise<T> {
   });
 }
 
-async function postNoPopup(payload: Record<string, unknown>) {
-  ensureConfigured();
-  const body = new URLSearchParams();
-  body.set('payload', JSON.stringify(payload));
-
-  await fetch(APPS_SCRIPT_URL!, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-    },
-    body
-  });
+/** Reintenta una vez antes de propagar el error. */
+async function jsonpWithRetry<T>(payload: Record<string, unknown>, retries = 1): Promise<T> {
+  try {
+    return await jsonp<T>(payload);
+  } catch (err) {
+    if (retries > 0) return jsonpWithRetry<T>(payload, retries - 1);
+    throw err;
+  }
 }
+
+// ─── Public API ───────────────────────────────────────────────────────────────
 
 export const sheetsApi = {
   async listProjects(user: AppUser) {
-    return jsonp<ProjectRecord[]>(
+    return jsonpWithRetry<ProjectRecord[]>(
       buildPayload('listProjects', { ownerId: user.uid, ownerEmail: user.email })
     );
   },
 
   async listSpools(user: AppUser, projectId: string) {
-    return jsonp<SpoolRecord[]>(
+    return jsonpWithRetry<SpoolRecord[]>(
       buildPayload('listSpools', { ownerId: user.uid, ownerEmail: user.email, projectId })
     );
   },
@@ -166,11 +197,11 @@ export const sheetsApi = {
       ownerEmail: user.email,
       createdAt: new Date().toISOString()
     };
-    return jsonp<ProjectRecord>(buildPayload('createProject', { project }));
+    return jsonpWithRetry<ProjectRecord>(buildPayload('createProject', { project }));
   },
 
   async deleteProject(user: AppUser, projectId: string) {
-    await jsonp<{ deleted: boolean }>(buildPayload('deleteProject', {
+    await jsonpWithRetry<{ deleted: boolean }>(buildPayload('deleteProject', {
       ownerId: user.uid,
       ownerEmail: user.email,
       projectId
@@ -189,17 +220,32 @@ export const sheetsApi = {
       createdAt: now,
       updatedAt: now
     };
-    return jsonp<SpoolRecord>(buildPayload('createSpool', { spool }));
+    return jsonpWithRetry<SpoolRecord>(buildPayload('createSpool', { spool }));
   },
 
   async updateSpool(user: AppUser, spool: Pick<SpoolRecord, 'id' | 'projectId' | 'drawingData' | 'bom'>) {
-    await jsonp<{ updated: boolean }>(buildPayload('updateSpool', {
+    await jsonpWithRetry<{ updated: boolean }>(buildPayload('updateSpool', {
       ownerId: user.uid,
       ownerEmail: user.email,
       spool: {
         ...spool,
         updatedAt: new Date().toISOString()
       }
+    }));
+  },
+
+  async deleteSpool(user: AppUser, spoolId: string) {
+    await jsonpWithRetry<{ deleted: boolean }>(buildPayload('deleteSpool', {
+      ownerId: user.uid,
+      spoolId
+    }));
+  },
+
+  async renameSpool(user: AppUser, spoolId: string, newName: string) {
+    await jsonpWithRetry<{ renamed: boolean }>(buildPayload('renameSpool', {
+      ownerId: user.uid,
+      spoolId,
+      newName
     }));
   }
 };
