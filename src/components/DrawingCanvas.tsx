@@ -258,9 +258,10 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
         >
           {isEditing ? (
             <Html transform>
-              <div style={{ position: 'absolute', transform: 'translate(-50%, -50%)' }}>
+              <div className="absolute -translate-x-1/2 -translate-y-1/2">
                 <input
                   type="text"
+                  title="Editar valor"
                   autoFocus
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
@@ -527,9 +528,10 @@ const SimpleDimension: React.FC<{
       >
         {isEditing ? (
           <Html transform>
-            <div style={{ position: 'absolute', transform: 'translate(-50%, -50%)' }}>
+            <div className="absolute -translate-x-1/2 -translate-y-1/2">
               <input
                 type="text"
+                title="Editar valor"
                 autoFocus
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
