@@ -52,6 +52,10 @@ function handle_(payload) {
         return ok_(createSpool_(payload));
       case 'updateSpool':
         return ok_(updateSpool_(payload));
+      case 'deleteSpool':
+        return ok_(deleteSpool_(payload));
+      case 'renameSpool':
+        return ok_(renameSpool_(payload));
       default:
         throw new Error(`Accion no soportada: ${payload.action}`);
     }
@@ -185,6 +189,42 @@ function updateSpool_(payload) {
   });
 
   return { updated: true };
+}
+
+function deleteSpool_(payload) {
+  const ownerId = requireString_(payload.ownerId, 'ownerId');
+  const spoolId = requireString_(payload.spoolId, 'spoolId');
+
+  withLock_(() => {
+    const sheet = getSheet_(SPOOLS_SHEET, SPOOL_HEADERS);
+    const row = findRowIndexById_(sheet, spoolId);
+    if (row === -1) throw new Error('Spool no encontrado');
+
+    const existing = rowToObject_(SPOOL_HEADERS, sheet.getRange(row, 1, 1, SPOOL_HEADERS.length).getValues()[0]);
+    assertOwner_(existing.ownerId, ownerId);
+    sheet.deleteRow(row);
+  });
+
+  return { deleted: true };
+}
+
+function renameSpool_(payload) {
+  const ownerId = requireString_(payload.ownerId, 'ownerId');
+  const spoolId = requireString_(payload.spoolId, 'spoolId');
+  const newName = requireString_(payload.newName, 'newName');
+
+  withLock_(() => {
+    const sheet = getSheet_(SPOOLS_SHEET, SPOOL_HEADERS);
+    const row = findRowIndexById_(sheet, spoolId);
+    if (row === -1) throw new Error('Spool no encontrado');
+
+    const existing = rowToObject_(SPOOL_HEADERS, sheet.getRange(row, 1, 1, SPOOL_HEADERS.length).getValues()[0]);
+    assertOwner_(existing.ownerId, ownerId);
+    // Column 3 = name (1-indexed)
+    sheet.getRange(row, 3).setValue(newName);
+  });
+
+  return { renamed: true };
 }
 
 function getSpreadsheet_() {

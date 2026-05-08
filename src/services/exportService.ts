@@ -199,3 +199,34 @@ export const exportToDXF = (elements: DrawingElement[], spoolName: string) => {
   link.download = `${spoolName}.dxf`;
   link.click();
 };
+
+export const exportToPNG = (spoolName: string, projectName: string): void => {
+  // Konva renders to a <canvas> element inside the Stage container
+  const canvas = document.querySelector<HTMLCanvasElement>('.konvajs-content canvas');
+  if (!canvas) {
+    alert('No se encontró el canvas para exportar.');
+    return;
+  }
+
+  // Create an offscreen canvas with a white background
+  const offscreen = document.createElement('canvas');
+  offscreen.width = canvas.width;
+  offscreen.height = canvas.height;
+  const ctx = offscreen.getContext('2d');
+  if (!ctx) return;
+
+  ctx.fillStyle = '#0a0b0d';
+  ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+  ctx.drawImage(canvas, 0, 0);
+
+  const safeFilename = `${projectName}_${spoolName}`.replace(/[<>:"/\\|?*]/g, '_');
+  offscreen.toBlob((blob) => {
+    if (!blob) return;
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${safeFilename}.png`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  }, 'image/png');
+};
+
