@@ -733,6 +733,359 @@ const SupportDimensions: React.FC<{
   );
 };
 
+// Pipe Element wrapped in React.memo for performance
+const PipeElement = React.memo<{
+  el: DrawingElement;
+  isSelected: boolean;
+  isInGroup: boolean;
+  isLocked: boolean;
+  isCotasVisible: boolean;
+  currentTool: string;
+  pipeNum?: number;
+  scale: number;
+  overlappingLabels: Set<string>;
+  selectedIds: string[];
+  handleElementSelect: (id: string, shiftKey: boolean) => void;
+  moveElements: (ids: string[], dx: number, dy: number) => void;
+  onUpdateOffset: (id: string, offset: Point) => void;
+  handlePointDrag: (id: string, pointIndex: 0 | 1, newPoint: Point) => void;
+  snapPoint: (p: Point, excludeId?: string) => Point;
+}>(({
+  el, isSelected, isInGroup, isLocked, isCotasVisible, currentTool,
+  pipeNum, scale, overlappingLabels, selectedIds, handleElementSelect, moveElements,
+  onUpdateOffset, handlePointDrag, snapPoint
+}) => {
+  if (!el.points) return null;
+  const [x1, y1, x2, y2] = el.points;
+
+  return (
+    <Group key={el.id}>
+      <Group
+        draggable={currentTool === "select" && !isLocked}
+        onDragMove={(e) => {
+          if (!isSelected || isLocked) return;
+        }}
+        onDragStart={() => {
+          if (!isSelected && !isLocked) {
+            handleElementSelect(el.id, false);
+          }
+        }}
+        onDragEnd={(e) => {
+          if (isLocked) return;
+          const group = e.target;
+          const snapped = snapPoint(group.position(), el.id);
+          const dx = snapped.x;
+          const dy = snapped.y;
+
+          moveElements(selectedIds, dx, dy);
+          group.position({ x: 0, y: 0 });
+        }}
+        onClick={(e) => {
+          if (currentTool === "select" && !isLocked) {
+            handleElementSelect(el.id, e.evt.shiftKey);
+          }
+        }}
+      >
+        <Line
+          points={el.points}
+          stroke={isSelected ? "#fcc419" : "#4dabf7"}
+          strokeWidth={PIPE_STROKE_WIDTH}
+          hitStrokeWidth={PIPE_HIT_STROKE_WIDTH}
+          lineCap="round"
+          lineJoin="round"
+          shadowColor="black"
+          shadowBlur={isSelected ? 10 : isInGroup ? 5 : 0}
+          shadowOpacity={isInGroup ? 0.3 : 0.5}
+          opacity={isLocked ? 0.6 : 1}
+        />
+        {isCotasVisible && (
+          <DimensionLabel
+            el={el}
+            pipeNum={pipeNum}
+            isSelected={isSelected}
+            currentTool={currentTool}
+            onUpdateOffset={onUpdateOffset}
+            onSelect={(id, len) => !isLocked && handleElementSelect(id, false)}
+            scale={scale}
+            isOverlapping={overlappingLabels.has(`${el.id}-main`)}
+          />
+        )}
+      </Group>
+
+      {/* Handles for resizing */}
+      {isSelected && currentTool === "select" && !isInGroup && !isLocked && (
+        <Group>
+          <Circle
+            x={x1}
+            y={y1}
+            radius={6}
+            fill="#fff"
+            stroke="#fcc419"
+            strokeWidth={2}
+            draggable
+            onDragMove={(e) => {
+              const pos = e.target.position();
+              handlePointDrag(el.id, 0, snapPoint(pos, el.id));
+            }}
+            onDragEnd={(e) =>
+              e.target.position({ x: el.points![0], y: el.points![1] })
+            }
+          />
+          <Circle
+            x={x2}
+            y={x2 === x1 && y2 === y1 ? y1 + 10 : y2}
+            radius={6}
+            fill="#fff"
+            stroke="#fcc419"
+            strokeWidth={2}
+            draggable
+            onDragMove={(e) => {
+              const pos = e.target.position();
+              handlePointDrag(el.id, 1, snapPoint(pos, el.id));
+            }}
+            onDragEnd={(e) =>
+              e.target.position({ x: el.points![2], y: el.points![3] })
+            }
+          />
+        </Group>
+      )}
+    </Group>
+  );
+});
+
+// Node Element wrapped in React.memo for performance
+const NodeElement = React.memo<{
+  el: DrawingElement;
+  isSelected: boolean;
+  isInGroup: boolean;
+  isLocked: boolean;
+  isCotasVisible: boolean;
+  currentTool: string;
+  scale: number;
+  overlappingLabels: Set<string>;
+  selectedIds: string[];
+  elements: DrawingElement[];
+  images: Record<string, HTMLImageElement | undefined>;
+  handleElementSelect: (id: string, shiftKey: boolean) => void;
+  moveElements: (ids: string[], dx: number, dy: number) => void;
+  snapPoint: (p: Point, excludeId?: string) => Point;
+}>(({
+  el, isSelected, isInGroup, isLocked, isCotasVisible, currentTool,
+  scale, overlappingLabels, selectedIds, elements, images,
+  handleElementSelect, moveElements, snapPoint
+}) => {
+  if (!el.position) return null;
+
+  const baseSize =
+    el.type === "accessory"
+      ? el.accessoryType === "valve"
+        ? VALVE_BASE_SIZE
+        : ACCESSORY_BASE_SIZE
+      : 8 + (el.diameter || 2) * 2;
+
+  const {
+    codoImg, codo45Img, teeImg, teeRedImg, reducexcImg,
+    valvulaImg, bridaImg, reducerImg, supportImg
+  } = images;
+
+  return (
+    <Group key={el.id}>
+      {el.type === "support" && isCotasVisible && (
+        <SupportDimensions
+          support={el}
+          allElements={elements}
+          scale={scale}
+          overlappingLabels={overlappingLabels}
+          currentTool={currentTool}
+        />
+      )}
+      <Group
+        x={el.position.x}
+        y={el.position.y}
+        rotation={el.rotation || 0}
+        draggable={currentTool === "select" && !isLocked}
+        onDragStart={() => {
+          if (!isSelected && !isLocked) {
+            handleElementSelect(el.id, false);
+          }
+        }}
+        onDragEnd={(e) => {
+          if (isLocked) return;
+          const pos = e.target.position();
+          const snapped = snapPoint(pos, el.id);
+          const dx = snapped.x - el.position!.x;
+          const dy = snapped.y - el.position!.y;
+
+          moveElements(selectedIds, dx, dy);
+          e.target.position({
+            x: el.position!.x,
+            y: el.position!.y,
+          }); // Store will update it
+        }}
+        onClick={(e) => {
+          if (currentTool === "select" && !isLocked) {
+            handleElementSelect(el.id, e.evt.shiftKey);
+          }
+        }}
+      >
+        {/* Accessory visual representation */}
+        {el.type === "accessory" && el.accessoryType === "elbow" && (
+          codoImg ? (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              {isSelected && (
+                <Rect x={-baseSize / 2 - 2} y={-baseSize / 2 - 2} width={baseSize + 4} height={baseSize + 4} stroke="#fff" strokeWidth={2} dash={[4, 4]} />
+              )}
+              <KonvaImage image={codoImg} x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} cornerRadius={4} />
+            </Group>
+          ) : (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              <Circle radius={baseSize / 2} fill={isSelected ? "#fff" : "#ffc107"} stroke="#000" strokeWidth={1} />
+              <Line points={[0, 0, baseSize / 2, 0]} stroke="#000" strokeWidth={1} />
+              <Line points={[0, 0, 0, -baseSize / 2]} stroke="#000" strokeWidth={1} />
+            </Group>
+          )
+        )}
+        {el.type === "accessory" && el.accessoryType === "elbow45" && (
+          codo45Img ? (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              {isSelected && (
+                <Rect x={-baseSize / 2 - 2} y={-baseSize / 2 - 2} width={baseSize + 4} height={baseSize + 4} stroke="#fff" strokeWidth={2} dash={[4, 4]} />
+              )}
+              <KonvaImage image={codo45Img} x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} cornerRadius={4} />
+            </Group>
+          ) : (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              <Circle radius={baseSize / 2} fill={isSelected ? "#fff" : "#ffc107"} stroke="#000" strokeWidth={1} />
+              <Line points={[0, 0, baseSize / 3, -baseSize / 3]} stroke="#000" strokeWidth={2} />
+            </Group>
+          )
+        )}
+        {el.type === "accessory" && el.accessoryType === "tee" && (
+          teeImg ? (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              {isSelected && (
+                <Rect x={-baseSize / 2 - 2} y={-baseSize / 2 - 2} width={baseSize + 4} height={baseSize + 4} stroke="#fff" strokeWidth={2} dash={[4, 4]} />
+              )}
+              <KonvaImage image={teeImg} x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} cornerRadius={4} />
+            </Group>
+          ) : (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              <Circle radius={baseSize * 0.4} fill={isSelected ? "#fff" : "#fd7e14"} stroke="#000" strokeWidth={1} />
+              <Line points={[-baseSize / 2, 0, baseSize / 2, 0]} stroke="#000" strokeWidth={1.5} />
+              <Line points={[0, 0, 0, -baseSize / 2]} stroke="#000" strokeWidth={1.5} />
+            </Group>
+          )
+        )}
+        {el.type === "accessory" && el.accessoryType === "teered" && (
+          teeRedImg ? (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              {isSelected && (
+                <Rect x={-baseSize / 2 - 2} y={-baseSize / 2 - 2} width={baseSize + 4} height={baseSize + 4} stroke="#fff" strokeWidth={2} dash={[4, 4]} />
+              )}
+              <KonvaImage image={teeRedImg} x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} cornerRadius={4} />
+            </Group>
+          ) : (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              <Circle radius={baseSize * 0.4} fill={isSelected ? "#fff" : "#fd7e14"} stroke="#000" strokeWidth={1} />
+              <Text text="R" x={-4} y={-6} fontSize={10} fill="#000" />
+            </Group>
+          )
+        )}
+        {el.type === "accessory" && el.accessoryType === "reducexc" && (
+          reducexcImg ? (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              {isSelected && (
+                <Rect x={-baseSize / 2 - 2} y={-baseSize / 2 - 2} width={baseSize + 4} height={baseSize + 4} stroke="#fff" strokeWidth={2} dash={[4, 4]} />
+              )}
+              <KonvaImage image={reducexcImg} x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} cornerRadius={4} />
+            </Group>
+          ) : (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              <Circle radius={baseSize * 0.4} fill={isSelected ? "#fff" : "#ffc107"} stroke="#000" strokeWidth={1} />
+              <Text text="RX" x={-6} y={-6} fontSize={10} fill="#000" />
+            </Group>
+          )
+        )}
+        {el.type === "accessory" && el.accessoryType === "valve" && (
+          valvulaImg ? (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              {isSelected && (
+                <Rect x={-baseSize / 2 - 2} y={-baseSize / 2 - 2} width={baseSize + 4} height={baseSize + 4} stroke="#fff" strokeWidth={2} dash={[4, 4]} />
+              )}
+              <KonvaImage image={valvulaImg} x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} cornerRadius={4} />
+            </Group>
+          ) : (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              <Line points={[-baseSize / 2, -baseSize / 2, baseSize / 2, baseSize / 2]} stroke={isSelected ? "#fff" : "#fa5252"} strokeWidth={3} />
+              <Line points={[-baseSize / 2, baseSize / 2, baseSize / 2, -baseSize / 2]} stroke={isSelected ? "#fff" : "#fa5252"} strokeWidth={3} />
+              <Circle radius={baseSize / 4} fill="#1a1b1e" stroke="#fff" strokeWidth={0.5} />
+            </Group>
+          )
+        )}
+        {el.type === "accessory" && el.accessoryType === "flange" && (
+          bridaImg ? (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              {isSelected && (
+                <Rect x={-baseSize / 2 - 2} y={-baseSize / 2 - 2} width={baseSize + 4} height={baseSize + 4} stroke="#fff" strokeWidth={2} dash={[4, 4]} />
+              )}
+              <KonvaImage image={bridaImg} x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} cornerRadius={4} />
+            </Group>
+          ) : (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              <Rect x={-1} y={-baseSize / 2} width={2} height={baseSize} fill={isSelected ? "#fff" : "#adb5bd"} stroke="#000" strokeWidth={0.5} />
+              <Circle radius={baseSize * 0.1} x={0} y={-baseSize / 3} fill="#000" />
+              <Circle radius={baseSize * 0.1} x={0} y={baseSize / 3} fill="#000" />
+            </Group>
+          )
+        )}
+        {el.type === "accessory" && el.accessoryType === "reducer" && (
+          reducerImg ? (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              {isSelected && (
+                <Rect x={-baseSize / 2 - 2} y={-baseSize / 2 - 2} width={baseSize + 4} height={baseSize + 4} stroke="#fff" strokeWidth={2} dash={[4, 4]} />
+              )}
+              <KonvaImage image={reducerImg} x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} cornerRadius={4} />
+            </Group>
+          ) : (
+            <Line points={[-baseSize / 2, -baseSize / 2, baseSize / 2, -baseSize / 4, baseSize / 2, baseSize / 4, -baseSize / 2, baseSize / 2]} closed fill={isSelected ? "#fff" : "#845ef7"} stroke="#000" strokeWidth={1} opacity={isLocked ? 0.6 : 1} />
+          )
+        )}
+
+        {/* Support visual representation */}
+        {el.type === "support" && el.supportType === "fixed" && (
+          supportImg ? (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              {isSelected && (
+                <Rect x={-baseSize / 2 - 2} y={-baseSize / 2 - 2} width={baseSize + 4} height={baseSize + 4} stroke="#fff" strokeWidth={2} dash={[4, 4]} />
+              )}
+              <KonvaImage image={supportImg} x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} cornerRadius={4} />
+            </Group>
+          ) : (
+            <Group opacity={isLocked ? 0.6 : 1}>
+              <Rect x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} fill={isSelected ? "#fff" : "#1098ad"} stroke="#000" strokeWidth={1} />
+              <Line points={[-baseSize / 2, -baseSize / 2, baseSize / 2, baseSize / 2]} stroke="#000" strokeWidth={0.5} />
+              <Line points={[baseSize / 2, -baseSize / 2, -baseSize / 2, baseSize / 2]} stroke="#000" strokeWidth={0.5} />
+            </Group>
+          )
+        )}
+        {el.type === "support" && el.supportType === "sliding" && (
+          <Group opacity={isLocked ? 0.6 : 1}>
+            <Circle radius={baseSize / 2} fill={isSelected ? "#fff" : "#20c997"} stroke="#000" strokeWidth={1} />
+            <Line points={[-baseSize / 2, 0, baseSize / 2, 0]} stroke="#000" strokeWidth={1} />
+          </Group>
+        )}
+        {el.type === "support" && el.supportType === "guide" && (
+          <Group opacity={isLocked ? 0.6 : 1}>
+            <Rect x={-baseSize / 2} y={-baseSize / 2} width={baseSize} height={baseSize} fill={isSelected ? "#fff" : "#f06595"} stroke="#000" strokeWidth={1} />
+            <Line points={[-baseSize / 2, -baseSize / 4, baseSize / 2, -baseSize / 4]} stroke="#000" strokeWidth={0.5} />
+            <Line points={[-baseSize / 2, baseSize / 4, baseSize / 2, baseSize / 4]} stroke="#000" strokeWidth={0.5} />
+          </Group>
+        )}
+      </Group>
+    </Group>
+  );
+});
+
 export const DrawingCanvas: React.FC = () => {
   const [reducerImg] = useImage('/reducer-icon.png');
   const [bridaImg] = useImage('/brida-icon.png');
@@ -1229,8 +1582,40 @@ export const DrawingCanvas: React.FC = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const snapToGrid = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
+  const snapEnabled = useStore(state => state.snapEnabled);
+  
+  const snapToGrid = useCallback((val: number) => {
+    return Math.round(val / GRID_SIZE) * GRID_SIZE;
+  }, []);
 
+  const snapPoint = useCallback((p: {x: number, y: number}, excludeId?: string) => {
+    if (!snapEnabled) return { x: snapToGrid(p.x), y: snapToGrid(p.y) };
+
+    const SNAP_DIST = 15;
+    let closestDist = SNAP_DIST;
+    let snapped = { x: snapToGrid(p.x), y: snapToGrid(p.y) }; // Default to grid
+
+    elements.forEach(el => {
+      if (el.id === excludeId) return;
+      
+      const checkNode = (nx: number, ny: number) => {
+        const dist = Math.sqrt(Math.pow(p.x - nx, 2) + Math.pow(p.y - ny, 2));
+        if (dist < closestDist) {
+          closestDist = dist;
+          snapped = { x: nx, y: ny };
+        }
+      };
+
+      if (el.type === 'pipe' && el.points) {
+        checkNode(el.points[0], el.points[1]);
+        checkNode(el.points[2], el.points[3]);
+      } else if (el.position) {
+        checkNode(el.position.x, el.position.y);
+      }
+    });
+
+    return snapped;
+  }, [snapEnabled, snapToGrid, elements]);
   const getRelativePointerPosition = (stage: any) => {
     const transform = stage.getAbsoluteTransform().copy().invert();
     const pos = stage.getPointerPosition();
@@ -1240,8 +1625,9 @@ export const DrawingCanvas: React.FC = () => {
   const handleMouseDown = (e: any) => {
     const stage = e.target.getStage();
     const relativePos = getRelativePointerPosition(stage);
-    const snappedX = snapToGrid(relativePos.x);
-    const snappedY = snapToGrid(relativePos.y);
+    const snapped = snapPoint(relativePos);
+    const snappedX = snapped.x;
+    const snappedY = snapped.y;
 
     if (currentTool === "pipe") {
       setIsDrawing(true);
@@ -1286,8 +1672,9 @@ export const DrawingCanvas: React.FC = () => {
   const handleMouseMove = (e: any) => {
     const stage = e.target.getStage();
     const relativePos = getRelativePointerPosition(stage);
-    const snappedX = snapToGrid(relativePos.x);
-    const snappedY = snapToGrid(relativePos.y);
+    const snapped = snapPoint(relativePos);
+    const snappedX = snapped.x;
+    const snappedY = snapped.y;
 
     if (isDrawing && newPipe) {
       setNewPipe([newPipe[0], newPipe[1], snappedX, snappedY]);
@@ -1439,117 +1826,27 @@ export const DrawingCanvas: React.FC = () => {
             const isLocked = isLayerLocked(el.layerId);
 
             if (el.type === "pipe" && el.points) {
-              const [x1, y1, x2, y2] = el.points;
+              // We pass selectedIds length to know if it's the only one selected for resize handles
+              const isOnlySelected = selectedIds.length === 1 && isSelected;
               return (
-                <Group key={el.id}>
-                  {/* The actual pipe group that is draggable */}
-                  <Group
-                    draggable={currentTool === "select" && !isLocked}
-                    onDragMove={(e) => {
-                      if (!isSelected || isLocked) return;
-                    }}
-                    onDragStart={() => {
-                      if (!isSelected && !isLocked) {
-                        handleElementSelect(el.id, false);
-                      }
-                    }}
-                    onDragEnd={(e) => {
-                      if (isLocked) return;
-                      const group = e.target;
-                      const dx = snapToGrid(group.x());
-                      const dy = snapToGrid(group.y());
-
-                      moveElements(selectedIds, dx, dy);
-                      group.position({ x: 0, y: 0 });
-                    }}
-                    onClick={(e) => {
-                      if (currentTool === "select" && !isLocked) {
-                        handleElementSelect(el.id, e.evt.shiftKey);
-                      }
-                    }}
-                  >
-                    <Line
-                      points={el.points}
-                      stroke={isSelected ? "#fcc419" : "#4dabf7"}
-                      strokeWidth={PIPE_STROKE_WIDTH}
-                      hitStrokeWidth={PIPE_HIT_STROKE_WIDTH}
-                      lineCap="round"
-                      lineJoin="round"
-                      shadowColor="black"
-                      shadowBlur={isSelected ? 10 : isInGroup ? 5 : 0}
-                      shadowOpacity={isInGroup ? 0.3 : 0.5}
-                      opacity={isLocked ? 0.6 : 1}
-                    />
-                    {isCotasVisible && (
-                      <DimensionLabel
-                        el={el}
-                        pipeNum={pipeNumbers[el.id]}
-                        isSelected={isSelected}
-                        currentTool={currentTool}
-                        onUpdateOffset={onUpdateOffset}
-                        onSelect={(id, len) =>
-                          !isLocked && handleElementSelect(id, false)
-                        }
-                        scale={scale}
-                        isOverlapping={overlappingLabels.has(`${el.id}-main`)}
-                      />
-                    )}
-                  </Group>
-
-                  {/* Handles for resizing */}
-                  {isSelected &&
-                    selectedIds.length === 1 &&
-                    currentTool === "select" &&
-                    !isInGroup &&
-                    !isLocked && (
-                      <Group>
-                        <Circle
-                          x={x1}
-                          y={y1}
-                          radius={6}
-                          fill="#fff"
-                          stroke="#fcc419"
-                          strokeWidth={2}
-                          draggable
-                          onDragMove={(e) => {
-                            const pos = e.target.position();
-                            handlePointDrag(el.id, 0, {
-                              x: snapToGrid(pos.x),
-                              y: snapToGrid(pos.y),
-                            });
-                          }}
-                          onDragEnd={(e) =>
-                            e.target.position({
-                              x: el.points![0],
-                              y: el.points![1],
-                            })
-                          }
-                        />
-                        <Circle
-                          x={x2}
-                          y={x2 === x1 && y2 === y1 ? y1 + 10 : y2}
-                          radius={6}
-                          fill="#fff"
-                          stroke="#fcc419"
-                          strokeWidth={2}
-                          draggable
-                          onDragMove={(e) => {
-                            const pos = e.target.position();
-                            handlePointDrag(el.id, 1, {
-                              x: snapToGrid(pos.x),
-                              y: snapToGrid(pos.y),
-                            });
-                          }}
-                          onDragEnd={(e) =>
-                            e.target.position({
-                              x: el.points![2],
-                              y: el.points![3],
-                            })
-                          }
-                        />
-                      </Group>
-                    )}
-                </Group>
+                <PipeElement
+                  key={el.id}
+                  el={el}
+                  isSelected={isSelected}
+                  isInGroup={isInGroup}
+                  isLocked={isLocked}
+                  isCotasVisible={isCotasVisible}
+                  currentTool={currentTool}
+                  pipeNum={pipeNumbers[el.id]}
+                  scale={scale}
+                  overlappingLabels={overlappingLabels}
+                  selectedIds={selectedIds}
+                  handleElementSelect={handleElementSelect}
+                  moveElements={moveElements}
+                  onUpdateOffset={onUpdateOffset}
+                  handlePointDrag={handlePointDrag}
+                  snapPoint={snapPoint}
+                />
               );
             }
             if (
@@ -1564,514 +1861,23 @@ export const DrawingCanvas: React.FC = () => {
                   : 8 + (el.diameter || 2) * 2;
               const isLocked = isLayerLocked(el.layerId);
               return (
-                <Group key={el.id}>
-                  {el.type === "support" && isCotasVisible && (
-                    <SupportDimensions
-                      support={el}
-                      allElements={elements}
-                      scale={scale}
-                      overlappingLabels={overlappingLabels}
-                      currentTool={currentTool}
-                    />
-                  )}
-                  <Group
-                    x={el.position.x}
-                    y={el.position.y}
-                    rotation={el.rotation || 0}
-                    draggable={currentTool === "select" && !isLocked}
-                    onDragStart={() => {
-                      if (!isSelected && !isLocked) {
-                        handleElementSelect(el.id, false);
-                      }
-                    }}
-                    onDragEnd={(e) => {
-                      if (isLocked) return;
-                      const pos = e.target.position();
-                      const dx = snapToGrid(pos.x) - el.position!.x;
-                      const dy = snapToGrid(pos.y) - el.position!.y;
-
-                      moveElements(selectedIds, dx, dy);
-                      e.target.position({
-                        x: el.position!.x,
-                        y: el.position!.y,
-                      }); // Store will update it
-                    }}
-                    onClick={(e) => {
-                      if (currentTool === "select" && !isLocked) {
-                        handleElementSelect(el.id, e.evt.shiftKey);
-                      }
-                    }}
-                  >
-                    {/* Accessory visual representation */}
-                     {el.type === "accessory" &&
-                      el.accessoryType === "elbow" && (
-                        codoImg ? (
-                          <Group opacity={isLocked ? 0.6 : 1}>
-                            {isSelected && (
-                              <Rect
-                                x={-baseSize / 2 - 2}
-                                y={-baseSize / 2 - 2}
-                                width={baseSize + 4}
-                                height={baseSize + 4}
-                                stroke="#fff"
-                                strokeWidth={2}
-                                dash={[4, 4]}
-                              />
-                            )}
-                            <KonvaImage
-                              image={codoImg}
-                              x={-baseSize / 2}
-                              y={-baseSize / 2}
-                              width={baseSize}
-                              height={baseSize}
-                              cornerRadius={4}
-                            />
-                          </Group>
-                        ) : (
-                          <Group opacity={isLocked ? 0.6 : 1}>
-                            <Circle
-                              radius={baseSize / 2}
-                              fill={isSelected ? "#fff" : "#ffc107"}
-                              stroke="#000"
-                              strokeWidth={1}
-                            />
-                            <Line
-                              points={[0, 0, baseSize / 2, 0]}
-                              stroke="#000"
-                              strokeWidth={1}
-                            />
-                            <Line
-                              points={[0, 0, 0, -baseSize / 2]}
-                              stroke="#000"
-                              strokeWidth={1}
-                            />
-                          </Group>
-                        )
-                      )}
-                    {el.type === "accessory" &&
-                      el.accessoryType === "elbow45" && (
-                        codo45Img ? (
-                          <Group opacity={isLocked ? 0.6 : 1}>
-                            {isSelected && (
-                              <Rect
-                                x={-baseSize / 2 - 2}
-                                y={-baseSize / 2 - 2}
-                                width={baseSize + 4}
-                                height={baseSize + 4}
-                                stroke="#fff"
-                                strokeWidth={2}
-                                dash={[4, 4]}
-                              />
-                            )}
-                            <KonvaImage
-                              image={codo45Img}
-                              x={-baseSize / 2}
-                              y={-baseSize / 2}
-                              width={baseSize}
-                              height={baseSize}
-                              cornerRadius={4}
-                            />
-                          </Group>
-                        ) : (
-                          <Group opacity={isLocked ? 0.6 : 1}>
-                            <Circle
-                              radius={baseSize / 2}
-                              fill={isSelected ? "#fff" : "#ffc107"}
-                              stroke="#000"
-                              strokeWidth={1}
-                            />
-                            <Line
-                              points={[0, 0, baseSize / 3, -baseSize / 3]}
-                              stroke="#000"
-                              strokeWidth={2}
-                            />
-                          </Group>
-                        )
-                      )}
-                    {el.type === "accessory" && el.accessoryType === "tee" && (
-                      teeImg ? (
-                        <Group opacity={isLocked ? 0.6 : 1}>
-                          {isSelected && (
-                            <Rect
-                              x={-baseSize / 2 - 2}
-                              y={-baseSize / 2 - 2}
-                              width={baseSize + 4}
-                              height={baseSize + 4}
-                              stroke="#fff"
-                              strokeWidth={2}
-                              dash={[4, 4]}
-                            />
-                          )}
-                          <KonvaImage
-                            image={teeImg}
-                            x={-baseSize / 2}
-                            y={-baseSize / 2}
-                            width={baseSize}
-                            height={baseSize}
-                            cornerRadius={4}
-                          />
-                        </Group>
-                      ) : (
-                        <Group opacity={isLocked ? 0.6 : 1}>
-                          <Circle
-                            radius={baseSize * 0.4}
-                            fill={isSelected ? "#fff" : "#fd7e14"}
-                            stroke="#000"
-                            strokeWidth={1}
-                          />
-                          <Line
-                            points={[-baseSize / 2, 0, baseSize / 2, 0]}
-                            stroke="#000"
-                            strokeWidth={1.5}
-                          />
-                          <Line
-                            points={[0, 0, 0, -baseSize / 2]}
-                            stroke="#000"
-                            strokeWidth={1.5}
-                          />
-                        </Group>
-                      )
-                    )}
-                    {el.type === "accessory" && el.accessoryType === "teered" && (
-                      teeRedImg ? (
-                        <Group opacity={isLocked ? 0.6 : 1}>
-                          {isSelected && (
-                            <Rect
-                              x={-baseSize / 2 - 2}
-                              y={-baseSize / 2 - 2}
-                              width={baseSize + 4}
-                              height={baseSize + 4}
-                              stroke="#fff"
-                              strokeWidth={2}
-                              dash={[4, 4]}
-                            />
-                          )}
-                          <KonvaImage
-                            image={teeRedImg}
-                            x={-baseSize / 2}
-                            y={-baseSize / 2}
-                            width={baseSize}
-                            height={baseSize}
-                            cornerRadius={4}
-                          />
-                        </Group>
-                      ) : (
-                        <Group opacity={isLocked ? 0.6 : 1}>
-                          <Circle
-                            radius={baseSize * 0.4}
-                            fill={isSelected ? "#fff" : "#fd7e14"}
-                            stroke="#000"
-                            strokeWidth={1}
-                          />
-                          <Text 
-                            text="R"
-                            x={-4}
-                            y={-6}
-                            fontSize={10}
-                            fill="#000"
-                          />
-                        </Group>
-                      )
-                    )}
-                    {el.type === "accessory" && el.accessoryType === "reducexc" && (
-                      reducexcImg ? (
-                        <Group opacity={isLocked ? 0.6 : 1}>
-                          {isSelected && (
-                            <Rect
-                              x={-baseSize / 2 - 2}
-                              y={-baseSize / 2 - 2}
-                              width={baseSize + 4}
-                              height={baseSize + 4}
-                              stroke="#fff"
-                              strokeWidth={2}
-                              dash={[4, 4]}
-                            />
-                          )}
-                          <KonvaImage
-                            image={reducexcImg}
-                            x={-baseSize / 2}
-                            y={-baseSize / 2}
-                            width={baseSize}
-                            height={baseSize}
-                            cornerRadius={4}
-                          />
-                        </Group>
-                      ) : (
-                        <Group opacity={isLocked ? 0.6 : 1}>
-                          <Circle
-                            radius={baseSize * 0.4}
-                            fill={isSelected ? "#fff" : "#ffc107"}
-                            stroke="#000"
-                            strokeWidth={1}
-                          />
-                          <Text 
-                            text="RX"
-                            x={-6}
-                            y={-6}
-                            fontSize={10}
-                            fill="#000"
-                          />
-                        </Group>
-                      )
-                    )}
-                    {el.type === "accessory" &&
-                      el.accessoryType === "valve" && (
-                        valvulaImg ? (
-                          <Group opacity={isLocked ? 0.6 : 1}>
-                            {isSelected && (
-                              <Rect
-                                x={-baseSize / 2 - 2}
-                                y={-baseSize / 2 - 2}
-                                width={baseSize + 4}
-                                height={baseSize + 4}
-                                stroke="#fff"
-                                strokeWidth={2}
-                                dash={[4, 4]}
-                              />
-                            )}
-                            <KonvaImage
-                              image={valvulaImg}
-                              x={-baseSize / 2}
-                              y={-baseSize / 2}
-                              width={baseSize}
-                              height={baseSize}
-                              cornerRadius={4}
-                            />
-                          </Group>
-                        ) : (
-                          <Group opacity={isLocked ? 0.6 : 1}>
-                            <Line
-                              points={[
-                                -baseSize / 2,
-                                -baseSize / 2,
-                                baseSize / 2,
-                                baseSize / 2,
-                              ]}
-                              stroke={isSelected ? "#fff" : "#fa5252"}
-                              strokeWidth={3}
-                            />
-                            <Line
-                              points={[
-                                -baseSize / 2,
-                                baseSize / 2,
-                                baseSize / 2,
-                                -baseSize / 2,
-                              ]}
-                              stroke={isSelected ? "#fff" : "#fa5252"}
-                              strokeWidth={3}
-                            />
-                            <Circle
-                              radius={baseSize / 4}
-                              fill="#1a1b1e"
-                              stroke="#fff"
-                              strokeWidth={0.5}
-                            />
-                          </Group>
-                        )
-                      )}
-                    {el.type === "accessory" &&
-                      el.accessoryType === "flange" && (
-                        bridaImg ? (
-                          <Group opacity={isLocked ? 0.6 : 1}>
-                            {isSelected && (
-                              <Rect
-                                x={-baseSize / 2 - 2}
-                                y={-baseSize / 2 - 2}
-                                width={baseSize + 4}
-                                height={baseSize + 4}
-                                stroke="#fff"
-                                strokeWidth={2}
-                                dash={[4, 4]}
-                              />
-                            )}
-                            <KonvaImage
-                              image={bridaImg}
-                              x={-baseSize / 2}
-                              y={-baseSize / 2}
-                              width={baseSize}
-                              height={baseSize}
-                              cornerRadius={4}
-                            />
-                          </Group>
-                        ) : (
-                          <Group opacity={isLocked ? 0.6 : 1}>
-                            <Rect
-                              x={-1}
-                              y={-baseSize / 2}
-                              width={2}
-                              height={baseSize}
-                              fill={isSelected ? "#fff" : "#adb5bd"}
-                              stroke="#000"
-                              strokeWidth={0.5}
-                            />
-                            <Circle
-                              radius={baseSize * 0.1}
-                              x={0}
-                              y={-baseSize / 3}
-                              fill="#000"
-                            />
-                            <Circle
-                              radius={baseSize * 0.1}
-                              x={0}
-                              y={baseSize / 3}
-                              fill="#000"
-                            />
-                          </Group>
-                        )
-                      )}
-                    {el.type === "accessory" &&
-                      el.accessoryType === "reducer" && (
-                        reducerImg ? (
-                          <Group opacity={isLocked ? 0.6 : 1}>
-                            {isSelected && (
-                              <Rect
-                                x={-baseSize / 2 - 2}
-                                y={-baseSize / 2 - 2}
-                                width={baseSize + 4}
-                                height={baseSize + 4}
-                                stroke="#fff"
-                                strokeWidth={2}
-                                dash={[4, 4]}
-                              />
-                            )}
-                            <KonvaImage
-                              image={reducerImg}
-                              x={-baseSize / 2}
-                              y={-baseSize / 2}
-                              width={baseSize}
-                              height={baseSize}
-                              cornerRadius={4}
-                            />
-                          </Group>
-                        ) : (
-                          <Line
-                            points={[
-                              -baseSize / 2,
-                              -baseSize / 2,
-                              baseSize / 2,
-                              -baseSize / 4,
-                              baseSize / 2,
-                              baseSize / 4,
-                              -baseSize / 2,
-                              baseSize / 2,
-                            ]}
-                            closed
-                            fill={isSelected ? "#fff" : "#845ef7"}
-                            stroke="#000"
-                            strokeWidth={1}
-                            opacity={isLocked ? 0.6 : 1}
-                          />
-                        )
-                      )}
-
-                    {/* Support visual representation */}
-                    {el.type === "support" && el.supportType === "fixed" && (
-                      supportImg ? (
-                        <Group opacity={isLocked ? 0.6 : 1}>
-                          {isSelected && (
-                            <Rect
-                              x={-baseSize / 2 - 2}
-                              y={-baseSize / 2 - 2}
-                              width={baseSize + 4}
-                              height={baseSize + 4}
-                              stroke="#fff"
-                              strokeWidth={2}
-                              dash={[4, 4]}
-                            />
-                          )}
-                          <KonvaImage
-                            image={supportImg}
-                            x={-baseSize / 2}
-                            y={-baseSize / 2}
-                            width={baseSize}
-                            height={baseSize}
-                            cornerRadius={4}
-                          />
-                        </Group>
-                      ) : (
-                        <Group opacity={isLocked ? 0.6 : 1}>
-                          <Rect
-                            x={-baseSize / 2}
-                            y={-baseSize / 2}
-                            width={baseSize}
-                            height={baseSize}
-                            fill={isSelected ? "#fff" : "#1098ad"}
-                            stroke="#000"
-                            strokeWidth={1}
-                          />
-                          <Line
-                            points={[
-                              -baseSize / 2,
-                              -baseSize / 2,
-                              baseSize / 2,
-                              baseSize / 2,
-                            ]}
-                            stroke="#000"
-                            strokeWidth={0.5}
-                          />
-                          <Line
-                            points={[
-                              baseSize / 2,
-                              -baseSize / 2,
-                              -baseSize / 2,
-                              baseSize / 2,
-                            ]}
-                            stroke="#000"
-                            strokeWidth={0.5}
-                          />
-                        </Group>
-                      )
-                    )}
-                    {el.type === "support" && el.supportType === "sliding" && (
-                      <Group opacity={isLocked ? 0.6 : 1}>
-                        <Circle
-                          radius={baseSize / 2}
-                          fill={isSelected ? "#fff" : "#20c997"}
-                          stroke="#000"
-                          strokeWidth={1}
-                        />
-                        <Line
-                          points={[-baseSize / 2, 0, baseSize / 2, 0]}
-                          stroke="#000"
-                          strokeWidth={1}
-                        />
-                      </Group>
-                    )}
-                    {el.type === "support" && el.supportType === "guide" && (
-                      <Group opacity={isLocked ? 0.6 : 1}>
-                        <Rect
-                          x={-baseSize / 2}
-                          y={-baseSize / 2}
-                          width={baseSize}
-                          height={baseSize}
-                          fill={isSelected ? "#fff" : "#f06595"}
-                          stroke="#000"
-                          strokeWidth={1}
-                        />
-                        <Line
-                          points={[
-                            -baseSize / 2,
-                            -baseSize / 4,
-                            baseSize / 2,
-                            -baseSize / 4,
-                          ]}
-                          stroke="#000"
-                          strokeWidth={0.5}
-                        />
-                        <Line
-                          points={[
-                            -baseSize / 2,
-                            baseSize / 4,
-                            baseSize / 2,
-                            baseSize / 4,
-                          ]}
-                          stroke="#000"
-                          strokeWidth={0.5}
-                        />
-                      </Group>
-                    )}
-                  </Group>
-                </Group>
+                <NodeElement
+                  key={el.id}
+                  el={el}
+                  isSelected={isSelected}
+                  isInGroup={isInGroup}
+                  isLocked={isLocked}
+                  isCotasVisible={isCotasVisible}
+                  currentTool={currentTool}
+                  scale={scale}
+                  overlappingLabels={overlappingLabels}
+                  selectedIds={selectedIds}
+                  elements={elements}
+                  images={{ codoImg, codo45Img, teeImg, teeRedImg, reducexcImg, valvulaImg, bridaImg, reducerImg, supportImg }}
+                  handleElementSelect={handleElementSelect}
+                  moveElements={moveElements}
+                  snapPoint={snapPoint}
+                />
               );
             }
             return null;

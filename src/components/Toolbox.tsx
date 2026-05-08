@@ -14,7 +14,8 @@ import {
   Disc,
   Settings2,
   Maximize2,
-  PlusCircle
+  PlusCircle,
+  Magnet
 } from 'lucide-react';
 import { useStore, AccessoryType, SupportType } from '../store/useStore';
 import { clsx, type ClassValue } from 'clsx';
@@ -39,7 +40,9 @@ export const Toolbox: React.FC = () => {
     deleteElement,
     undo, 
     redo, 
-    clearDrawing 
+    clearDrawing,
+    snapEnabled,
+    toggleSnap
   } = useStore();
 
   const [isAddingDiameter, setIsAddingDiameter] = useState(false);
@@ -377,13 +380,27 @@ export const Toolbox: React.FC = () => {
       </div>
 
       <div className="mt-auto space-y-2 border-t border-gray-800 pt-4 px-1">
-        <button 
-          onClick={centerView}
-          className="w-full flex flex-col items-center justify-center p-2 bg-blue-600/10 text-blue-400 rounded-xl hover:bg-blue-600/20 transition-colors border border-blue-600/30 mb-2"
-        >
-          <Maximize2 size={16} />
-          <span className="text-[8px] uppercase font-bold mt-1">Centrar</span>
-        </button>
+        <div className="grid grid-cols-2 gap-1 mb-2">
+          <button 
+            onClick={centerView}
+            className="flex flex-col items-center justify-center p-2 bg-blue-600/10 text-blue-400 rounded-xl hover:bg-blue-600/20 transition-colors border border-blue-600/30"
+          >
+            <Maximize2 size={16} />
+            <span className="text-[8px] uppercase font-bold mt-1">Centrar</span>
+          </button>
+          <button 
+            onClick={toggleSnap}
+            className={cn(
+              "flex flex-col items-center justify-center p-2 rounded-xl transition-colors border",
+              snapEnabled 
+                ? "bg-yellow-600/20 text-yellow-400 border-yellow-600/30 hover:bg-yellow-600/30" 
+                : "bg-[#2c2e33] text-gray-400 border-transparent hover:bg-[#343a40]"
+            )}
+          >
+            <Magnet size={16} />
+            <span className="text-[8px] uppercase font-bold mt-1">Imán {snapEnabled ? 'ON' : 'OFF'}</span>
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-1">
           <button onClick={undo} className="p-2 bg-[#2c2e33] text-gray-400 rounded-lg hover:bg-[#343a40] active:scale-90 transition-transform">
             <Undo2 size={16} className="mx-auto" />

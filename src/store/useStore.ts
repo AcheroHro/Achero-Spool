@@ -69,6 +69,9 @@ interface AppState {
   layers: Layer[];
   activeLayerId: string;
 
+  // Snapping state
+  snapEnabled: boolean;
+
   // Actions
   setNotification: (notif: { message: string, type: 'error' | 'success' } | null) => void;
   setTool: (tool: 'select' | 'pipe' | 'accessory' | 'support', type?: AccessoryType | SupportType) => void;
@@ -101,6 +104,7 @@ interface AppState {
   toggleLayerLock: (id: string) => void;
   setActiveLayer: (id: string) => void;
   updateCustomLabel: (elementId: string, labelKey: string, value: string) => void;
+  toggleSnap: () => void;
 }
 
 export const DEFAULT_LAYER_ID = 'default-layer';
@@ -131,6 +135,7 @@ export const useStore = create<AppState>((set, get) => ({
     { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: true, locked: false }
   ],
   activeLayerId: DEFAULT_LAYER_ID,
+  snapEnabled: false,
 
   setNotification: (notif) => set({ notification: notif }),
 
@@ -187,6 +192,8 @@ export const useStore = create<AppState>((set, get) => ({
     }));
     get().saveToHistory();
   },
+
+  toggleSnap: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
 
   setTool: (tool, type) => {
     if (tool === 'accessory') {
