@@ -42,6 +42,7 @@ export interface DrawingState {
   scale: number;
   layers: Layer[];
   activeLayerId: string;
+  labelFontSize: number;
 }
 
 interface AppState {
@@ -71,6 +72,9 @@ interface AppState {
 
   // Snapping state
   snapEnabled: boolean;
+  
+  // Label font size state
+  labelFontSize: number;
 
   // Actions
   setNotification: (notif: { message: string, type: 'error' | 'success' } | null) => void;
@@ -105,6 +109,7 @@ interface AppState {
   setActiveLayer: (id: string) => void;
   updateCustomLabel: (elementId: string, labelKey: string, value: string) => void;
   toggleSnap: () => void;
+  setLabelFontSize: (size: number) => void;
 }
 
 export const DEFAULT_LAYER_ID = 'default-layer';
@@ -136,6 +141,7 @@ export const useStore = create<AppState>((set, get) => ({
   ],
   activeLayerId: DEFAULT_LAYER_ID,
   snapEnabled: false,
+  labelFontSize: 8,
 
   setNotification: (notif) => set({ notification: notif }),
 
@@ -194,6 +200,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   toggleSnap: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
+
+  setLabelFontSize: (size: number) => set({ labelFontSize: size }),
 
   setTool: (tool, type) => {
     if (tool === 'accessory') {
@@ -386,8 +394,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   saveToHistory: () => {
-    const { elements, viewPos, scale, layers, activeLayerId, history, historyIndex } = get();
-    const newState = { elements, viewPos, scale, layers, activeLayerId };
+    const { elements, viewPos, scale, layers, activeLayerId, labelFontSize, history, historyIndex } = get();
+    const newState = { elements, viewPos, scale, layers, activeLayerId, labelFontSize };
     
     // Remove future history if we were in undo state
     const newHistory = history.slice(0, historyIndex + 1);
@@ -411,6 +419,7 @@ export const useStore = create<AppState>((set, get) => ({
         scale: prevState.scale,
         layers: prevState.layers,
         activeLayerId: prevState.activeLayerId,
+        labelFontSize: prevState.labelFontSize || 12,
         historyIndex: historyIndex - 1
       });
     }
@@ -426,6 +435,7 @@ export const useStore = create<AppState>((set, get) => ({
         scale: nextState.scale,
         layers: nextState.layers,
         activeLayerId: nextState.activeLayerId,
+        labelFontSize: nextState.labelFontSize || 12,
         historyIndex: historyIndex + 1
       });
     }
@@ -451,7 +461,8 @@ export const useStore = create<AppState>((set, get) => ({
       viewPos: get().viewPos, 
       scale: get().scale,
       layers: get().layers,
-      activeLayerId: get().activeLayerId
+      activeLayerId: get().activeLayerId,
+      labelFontSize: get().labelFontSize
     }],
     historyIndex: 0
   }),
@@ -467,6 +478,7 @@ export const useStore = create<AppState>((set, get) => ({
       scale: state.scale || 1,
       layers: state.layers || defaultLayers,
       activeLayerId: state.activeLayerId || DEFAULT_LAYER_ID,
+      labelFontSize: state.labelFontSize || 12,
     };
     set({ 
       ...newState,

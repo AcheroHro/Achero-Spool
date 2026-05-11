@@ -500,34 +500,6 @@ export default function App() {
               <div className="flex-1 relative overflow-hidden">
                 <DrawingCanvas />
 
-                {/* Zoom controls */}
-                <div className="absolute bottom-4 left-4 flex flex-col gap-1 z-20">
-                  <button
-                    onClick={handleZoomIn}
-                    title="Acercar"
-                    className="w-9 h-9 bg-[#1e2024]/90 border border-gray-700 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#2c2e33] transition-all backdrop-blur-sm active:scale-95"
-                  >
-                    <ZoomIn size={16} />
-                  </button>
-                  <button
-                    onClick={handleZoomFit}
-                    title="Ajustar vista"
-                    className="w-9 h-9 bg-[#1e2024]/90 border border-gray-700 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#2c2e33] transition-all backdrop-blur-sm active:scale-95"
-                  >
-                    <Maximize size={16} />
-                  </button>
-                  <button
-                    onClick={handleZoomOut}
-                    title="Alejar"
-                    className="w-9 h-9 bg-[#1e2024]/90 border border-gray-700 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#2c2e33] transition-all backdrop-blur-sm active:scale-95"
-                  >
-                    <ZoomOut size={16} />
-                  </button>
-                  {/* Scale indicator */}
-                  <div className="w-9 h-7 bg-[#1e2024]/80 border border-gray-800 rounded-md flex items-center justify-center">
-                    <span className="text-[8px] text-gray-500 font-mono">{Math.round(scale * 100)}%</span>
-                  </div>
-                </div>
               </div>
               <div className="w-20 h-full shrink-0 border-l border-gray-800 bg-[#16181d] z-20">
                 <Toolbox />

@@ -25,10 +25,12 @@ import {
   Lock,
   Unlock,
   Plus,
+  Minus,
   Pencil,
   MoreVertical,
   ZoomIn,
   ZoomOut,
+  Maximize,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -38,7 +40,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const GRID_SIZE = 5;
-const PIPE_STROKE_WIDTH = 1.25;
+const PIPE_STROKE_WIDTH = 4.0;
 const PIPE_HIT_STROKE_WIDTH = 14;
 const ACCESSORY_BASE_SIZE = 30;
 const VALVE_BASE_SIZE = 60;
@@ -62,6 +64,7 @@ interface DimensionLabelProps {
   scale: number;
   onLabelClick?: (elementId: string) => void;
   isOverlapping?: boolean;
+  fontSize: number;
 }
 
 const DimensionLabel = React.memo<DimensionLabelProps>(
@@ -75,6 +78,7 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
     scale,
     onLabelClick,
     isOverlapping,
+    fontSize,
   }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -183,14 +187,14 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
         {Math.sqrt(
           Math.pow(labelX - dimMidX, 2) + Math.pow(labelY - dimMidY, 2),
         ) > 10 && (
-          <Line
-            points={[dimMidX, dimMidY, labelX, labelY]}
-            stroke={isSelected ? "#fcc419" : "#6c757d"}
-            strokeWidth={witnessStrokeWidth}
-            dash={[2, 1]}
-            opacity={0.8}
-          />
-        )}
+            <Line
+              points={[dimMidX, dimMidY, labelX, labelY]}
+              stroke={isSelected ? "#fcc419" : "#6c757d"}
+              strokeWidth={witnessStrokeWidth}
+              dash={[2, 1]}
+              opacity={0.8}
+            />
+          )}
 
         {/* Draggable Label Container */}
         <Label
@@ -330,7 +334,7 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
                           : "#fff"
                 }
                 padding={6}
-                fontSize={12}
+                fontSize={fontSize}
                 fontStyle={
                   isSelected || isCustom || isOverlapping || isHovered ? "bold" : "normal"
                 }
@@ -363,6 +367,7 @@ const SimpleDimension: React.FC<{
   labelOffset?: Point;
   onUpdateOffset?: (offset: Point) => void;
   currentTool?: string;
+  fontSize?: number;
 }> = ({
   x1,
   y1,
@@ -379,231 +384,232 @@ const SimpleDimension: React.FC<{
   labelOffset,
   onUpdateOffset,
   currentTool,
+  fontSize = 12,
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState("");
+    const [isHovered, setIsHovered] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState("");
 
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
 
-  const nx = -dy / len;
-  const ny = dx / len;
+    const nx = -dy / len;
+    const ny = dx / len;
 
-  const ux = dx / len;
-  const uy = dy / len;
+    const ux = dx / len;
+    const uy = dy / len;
 
-  // Base position
-  const dimP1 = { x: x1 + nx * distance * side, y: y1 + ny * distance * side };
-  const dimP2 = { x: x2 + nx * distance * side, y: y2 + ny * distance * side };
-  const midX = (dimP1.x + dimP2.x) / 2;
-  const midY = (dimP1.y + dimP2.y) / 2;
+    // Base position
+    const dimP1 = { x: x1 + nx * distance * side, y: y1 + ny * distance * side };
+    const dimP2 = { x: x2 + nx * distance * side, y: y2 + ny * distance * side };
+    const midX = (dimP1.x + dimP2.x) / 2;
+    const midY = (dimP1.y + dimP2.y) / 2;
 
-  // Actual label position using offset if provided
-  const offset = labelOffset || { x: nx * 5 * side, y: ny * 5 * side };
-  const labelX = midX + offset.x;
-  const labelY = midY + offset.y;
+    // Actual label position using offset if provided
+    const offset = labelOffset || { x: nx * 5 * side, y: ny * 5 * side };
+    const labelX = midX + offset.x;
+    const labelY = midY + offset.y;
 
-  let angle = Math.atan2(dy, dx) * (180 / Math.PI);
-  if (angle > 90) angle -= 180;
-  if (angle < -90) angle += 180;
+    let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+    if (angle > 90) angle -= 180;
+    if (angle < -90) angle += 180;
 
-  const arrowSize = Math.max(4, 8 / scale);
-  const dimLineStrokeWidth = Math.max(1, 1.8 / scale);
-  const witnessStrokeWidth = Math.max(0.3, 0.5 / scale);
+    const arrowSize = Math.max(4, 8 / scale);
+    const dimLineStrokeWidth = Math.max(1, 1.8 / scale);
+    const witnessStrokeWidth = Math.max(0.3, 0.5 / scale);
 
-  return (
-    <Group>
-      {/* Witness lines */}
-      <Line
-        points={[x1, y1, dimP1.x, dimP1.y]}
-        stroke="#495057"
-        strokeWidth={witnessStrokeWidth}
-        opacity={0.6}
-        dash={[1 / scale, 2 / scale]}
-      />
-      <Line
-        points={[x2, y2, dimP2.x, dimP2.y]}
-        stroke="#495057"
-        strokeWidth={witnessStrokeWidth}
-        opacity={0.6}
-        dash={[1 / scale, 2 / scale]}
-      />
-
-      {/* Dimension Line */}
-      <Line
-        points={[dimP1.x, dimP1.y, dimP2.x, dimP2.y]}
-        stroke={color}
-        strokeWidth={dimLineStrokeWidth}
-      />
-
-      {/* Leader line if text is offset from dimension line */}
-      {Math.sqrt(offset.x * offset.x + offset.y * offset.y) > 10 && (
+    return (
+      <Group>
+        {/* Witness lines */}
         <Line
-          points={[midX, midY, labelX, labelY]}
-          stroke={color}
+          points={[x1, y1, dimP1.x, dimP1.y]}
+          stroke="#495057"
           strokeWidth={witnessStrokeWidth}
-          dash={[2, 1]}
-          opacity={0.5}
+          opacity={0.6}
+          dash={[1 / scale, 2 / scale]}
         />
-      )}
+        <Line
+          points={[x2, y2, dimP2.x, dimP2.y]}
+          stroke="#495057"
+          strokeWidth={witnessStrokeWidth}
+          opacity={0.6}
+          dash={[1 / scale, 2 / scale]}
+        />
 
-      {/* Filled Arrows */}
-      <Line
-        points={[
-          dimP1.x,
-          dimP1.y,
-          dimP1.x + ux * arrowSize + ((nx * arrowSize) / 2.5) * side,
-          dimP1.y + uy * arrowSize + ((ny * arrowSize) / 2.5) * side,
-          dimP1.x + ux * arrowSize - ((nx * arrowSize) / 2.5) * side,
-          dimP1.y + uy * arrowSize - ((ny * arrowSize) / 2.5) * side,
-        ]}
-        fill={color}
-        closed={true}
-      />
-      <Line
-        points={[
-          dimP2.x,
-          dimP2.y,
-          dimP2.x - ux * arrowSize + ((nx * arrowSize) / 2.5) * side,
-          dimP2.y - uy * arrowSize + ((ny * arrowSize) / 2.5) * side,
-          dimP2.x - ux * arrowSize - ((nx * arrowSize) / 2.5) * side,
-          dimP2.y - uy * arrowSize - ((ny * arrowSize) / 2.5) * side,
-        ]}
-        fill={color}
-        closed={true}
-      />
+        {/* Dimension Line */}
+        <Line
+          points={[dimP1.x, dimP1.y, dimP2.x, dimP2.y]}
+          stroke={color}
+          strokeWidth={dimLineStrokeWidth}
+        />
 
-      <Label
-        x={labelX}
-        y={labelY}
-        rotation={angle}
-        draggable={currentTool === "select" && !!onUpdateOffset}
-        scaleX={isHovered ? 1.15 : 1}
-        scaleY={isHovered ? 1.15 : 1}
-        onDragStart={(e) => {
-          e.cancelBubble = true;
-        }}
-        onDragEnd={(e) => {
-          e.cancelBubble = true;
-          if (onUpdateOffset) {
-            const pos = e.target.position();
-            const relX = pos.x - midX;
-            const relY = pos.y - midY;
-
-            // Basic 5px snapping
-            onUpdateOffset({
-              x: Math.round(relX / 5) * 5,
-              y: Math.round(relY / 5) * 5,
-            });
-          }
-        }}
-        onDblClick={(e) => {
-          if (onLabelEdit && currentTool === "select") {
-            e.cancelBubble = true;
-            setIsEditing(true);
-            setEditValue(customLabel || lengthMm.toFixed(0));
-          }
-        }}
-        onDblTap={(e) => {
-          if (onLabelEdit && currentTool === "select") {
-            e.cancelBubble = true;
-            setIsEditing(true);
-            setEditValue(customLabel || lengthMm.toFixed(0));
-          }
-        }}
-        onMouseEnter={(e) => {
-          setIsHovered(true);
-          if (onLabelEdit || (currentTool === "select" && onUpdateOffset)) {
-            const container = e.target.getStage()?.container();
-            if (container) container.style.cursor = "pointer";
-          }
-        }}
-        onMouseLeave={(e) => {
-          setIsHovered(false);
-          const container = e.target.getStage()?.container();
-          if (container) container.style.cursor = "default";
-        }}
-      >
-        {isEditing ? (
-          <Html transform>
-            <div className="absolute -translate-x-1/2 -translate-y-1/2">
-              <input
-                type="text"
-                title="Editar valor"
-                autoFocus
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    if (onLabelEdit) {
-                      onLabelEdit(editValue.trim());
-                    }
-                    setIsEditing(false);
-                  } else if (e.key === 'Escape') {
-                    setIsEditing(false);
-                  }
-                }}
-                onBlur={() => setIsEditing(false)}
-                style={{
-                  width: Math.max(50, editValue.length * 8 + 16) + 'px',
-                  padding: '2px',
-                  border: `2px solid ${color}`,
-                  borderRadius: '4px',
-                  background: '#1a1c1e',
-                  color: '#fff',
-                  textAlign: 'center',
-                  outline: 'none',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                }}
-              />
-            </div>
-          </Html>
-        ) : (
-          <>
-            <Tag
-              fill="#1a1c1e"
-              stroke={
-                isHovered
-                  ? "#fff"
-                  : isOverlapping
-                    ? "#f59f00"
-                    : customLabel
-                      ? "#20c997"
-                      : color
-              }
-              strokeWidth={isHovered ? 1.5 : isOverlapping ? 1.5 : customLabel ? 1 : 0.5}
-              cornerRadius={2}
-              dash={isOverlapping ? [1, 0.5] : customLabel ? [2, 1] : undefined}
-              shadowBlur={isOverlapping ? 8 : isHovered ? 5 : 0}
-              shadowColor={isOverlapping ? "#f59f00" : isHovered ? "#fff" : "transparent"}
-              opacity={0.8}
-            />
-            <Text
-              text={customLabel || `${lengthMm.toFixed(0)}`}
-              fill={
-                isHovered
-                  ? "#fff"
-                  : isOverlapping
-                    ? "#f59f00"
-                    : customLabel
-                      ? "#20c997"
-                      : color
-              }
-              padding={3}
-              fontSize={8}
-              fontStyle={isHovered || isOverlapping || customLabel ? "bold" : "normal"}
-              align="center"
-              verticalAlign="middle"
-            />
-          </>
+        {/* Leader line if text is offset from dimension line */}
+        {Math.sqrt(offset.x * offset.x + offset.y * offset.y) > 10 && (
+          <Line
+            points={[midX, midY, labelX, labelY]}
+            stroke={color}
+            strokeWidth={witnessStrokeWidth}
+            dash={[2, 1]}
+            opacity={0.5}
+          />
         )}
-      </Label>
-    </Group>
-  );
-};
+
+        {/* Filled Arrows */}
+        <Line
+          points={[
+            dimP1.x,
+            dimP1.y,
+            dimP1.x + ux * arrowSize + ((nx * arrowSize) / 2.5) * side,
+            dimP1.y + uy * arrowSize + ((ny * arrowSize) / 2.5) * side,
+            dimP1.x + ux * arrowSize - ((nx * arrowSize) / 2.5) * side,
+            dimP1.y + uy * arrowSize - ((ny * arrowSize) / 2.5) * side,
+          ]}
+          fill={color}
+          closed={true}
+        />
+        <Line
+          points={[
+            dimP2.x,
+            dimP2.y,
+            dimP2.x - ux * arrowSize + ((nx * arrowSize) / 2.5) * side,
+            dimP2.y - uy * arrowSize + ((ny * arrowSize) / 2.5) * side,
+            dimP2.x - ux * arrowSize - ((nx * arrowSize) / 2.5) * side,
+            dimP2.y - uy * arrowSize - ((ny * arrowSize) / 2.5) * side,
+          ]}
+          fill={color}
+          closed={true}
+        />
+
+        <Label
+          x={labelX}
+          y={labelY}
+          rotation={angle}
+          draggable={currentTool === "select" && !!onUpdateOffset}
+          scaleX={isHovered ? 1.15 : 1}
+          scaleY={isHovered ? 1.15 : 1}
+          onDragStart={(e) => {
+            e.cancelBubble = true;
+          }}
+          onDragEnd={(e) => {
+            e.cancelBubble = true;
+            if (onUpdateOffset) {
+              const pos = e.target.position();
+              const relX = pos.x - midX;
+              const relY = pos.y - midY;
+
+              // Basic 5px snapping
+              onUpdateOffset({
+                x: Math.round(relX / 5) * 5,
+                y: Math.round(relY / 5) * 5,
+              });
+            }
+          }}
+          onDblClick={(e) => {
+            if (onLabelEdit && currentTool === "select") {
+              e.cancelBubble = true;
+              setIsEditing(true);
+              setEditValue(customLabel || lengthMm.toFixed(0));
+            }
+          }}
+          onDblTap={(e) => {
+            if (onLabelEdit && currentTool === "select") {
+              e.cancelBubble = true;
+              setIsEditing(true);
+              setEditValue(customLabel || lengthMm.toFixed(0));
+            }
+          }}
+          onMouseEnter={(e) => {
+            setIsHovered(true);
+            if (onLabelEdit || (currentTool === "select" && onUpdateOffset)) {
+              const container = e.target.getStage()?.container();
+              if (container) container.style.cursor = "pointer";
+            }
+          }}
+          onMouseLeave={(e) => {
+            setIsHovered(false);
+            const container = e.target.getStage()?.container();
+            if (container) container.style.cursor = "default";
+          }}
+        >
+          {isEditing ? (
+            <Html transform>
+              <div className="absolute -translate-x-1/2 -translate-y-1/2">
+                <input
+                  type="text"
+                  title="Editar valor"
+                  autoFocus
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (onLabelEdit) {
+                        onLabelEdit(editValue.trim());
+                      }
+                      setIsEditing(false);
+                    } else if (e.key === 'Escape') {
+                      setIsEditing(false);
+                    }
+                  }}
+                  onBlur={() => setIsEditing(false)}
+                  style={{
+                    width: Math.max(50, editValue.length * 8 + 16) + 'px',
+                    padding: '2px',
+                    border: `2px solid ${color}`,
+                    borderRadius: '4px',
+                    background: '#1a1c1e',
+                    color: '#fff',
+                    textAlign: 'center',
+                    outline: 'none',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                  }}
+                />
+              </div>
+            </Html>
+          ) : (
+            <>
+              <Tag
+                fill="#1a1c1e"
+                stroke={
+                  isHovered
+                    ? "#fff"
+                    : isOverlapping
+                      ? "#f59f00"
+                      : customLabel
+                        ? "#20c997"
+                        : color
+                }
+                strokeWidth={isHovered ? 1.5 : isOverlapping ? 1.5 : customLabel ? 1 : 0.5}
+                cornerRadius={2}
+                dash={isOverlapping ? [1, 0.5] : customLabel ? [2, 1] : undefined}
+                shadowBlur={isOverlapping ? 8 : isHovered ? 5 : 0}
+                shadowColor={isOverlapping ? "#f59f00" : isHovered ? "#fff" : "transparent"}
+                opacity={0.8}
+              />
+              <Text
+                text={customLabel || `${lengthMm.toFixed(0)}`}
+                fill={
+                  isHovered
+                    ? "#fff"
+                    : isOverlapping
+                      ? "#f59f00"
+                      : customLabel
+                        ? "#20c997"
+                        : color
+                }
+                padding={3}
+                fontSize={fontSize}
+                fontStyle={isHovered || isOverlapping || customLabel ? "bold" : "normal"}
+                align="center"
+                verticalAlign="middle"
+              />
+            </>
+          )}
+        </Label>
+      </Group>
+    );
+  };
 
 const SupportDimensions: React.FC<{
   support: DrawingElement;
@@ -611,7 +617,8 @@ const SupportDimensions: React.FC<{
   scale: number;
   overlappingLabels: Set<string>;
   currentTool: string;
-}> = ({ support, allElements, scale, overlappingLabels, currentTool }) => {
+  fontSize: number;
+}> = ({ support, allElements, scale, overlappingLabels, currentTool, fontSize }) => {
   const updateCustomLabel = useStore((s) => s.updateCustomLabel);
   const updateElementLabelOffset = useStore((s) => s.updateElementLabelOffset);
   if (support.type !== "support" || !support.position) return null;
@@ -706,6 +713,7 @@ const SupportDimensions: React.FC<{
             updateElementLabelOffset(support.id, "prev", offset)
           }
           currentTool={currentTool}
+          fontSize={fontSize}
         />
       )}
       {isLast && distNextMm > 10 && (
@@ -729,6 +737,7 @@ const SupportDimensions: React.FC<{
             updateElementLabelOffset(support.id, "next", offset)
           }
           currentTool={currentTool}
+          fontSize={fontSize}
         />
       )}
     </Group>
@@ -752,10 +761,11 @@ const PipeElement = React.memo<{
   onUpdateOffset: (id: string, offset: Point) => void;
   handlePointDrag: (id: string, pointIndex: 0 | 1, newPoint: Point) => void;
   snapPoint: (p: Point, excludeId?: string) => Point;
+  fontSize: number;
 }>(({
   el, isSelected, isInGroup, isLocked, isCotasVisible, currentTool,
   pipeNum, scale, overlappingLabels, selectedIds, handleElementSelect, moveElements,
-  onUpdateOffset, handlePointDrag, snapPoint
+  onUpdateOffset, handlePointDrag, snapPoint, fontSize
 }) => {
   if (!el.points) return null;
   const [x1, y1, x2, y2] = el.points;
@@ -810,6 +820,7 @@ const PipeElement = React.memo<{
             onSelect={(id, len) => !isLocked && handleElementSelect(id, false)}
             scale={scale}
             isOverlapping={overlappingLabels.has(`${el.id}-main`)}
+            fontSize={fontSize}
           />
         )}
       </Group>
@@ -871,10 +882,11 @@ const NodeElement = React.memo<{
   handleElementSelect: (id: string, shiftKey: boolean) => void;
   moveElements: (ids: string[], dx: number, dy: number) => void;
   snapPoint: (p: Point, excludeId?: string) => Point;
+  fontSize: number;
 }>(({
   el, isSelected, isInGroup, isLocked, isCotasVisible, currentTool,
   scale, overlappingLabels, selectedIds, elements, images,
-  handleElementSelect, moveElements, snapPoint
+  handleElementSelect, moveElements, snapPoint, fontSize
 }) => {
   if (!el.position) return null;
 
@@ -899,6 +911,7 @@ const NodeElement = React.memo<{
           scale={scale}
           overlappingLabels={overlappingLabels}
           currentTool={currentTool}
+          fontSize={fontSize}
         />
       )}
       <Group
@@ -1133,6 +1146,8 @@ export const DrawingCanvas: React.FC = () => {
     setActiveLayer,
     updateCustomLabel,
     updateElementLabelOffset,
+    labelFontSize,
+    setLabelFontSize,
   } = useStore();
 
   const isCotasVisible = useMemo(() => {
@@ -1226,7 +1241,7 @@ export const DrawingCanvas: React.FC = () => {
               t = Math.max(0, Math.min(1, t));
               const d = Math.sqrt(
                 Math.pow(sp.x - (px1 + t * dx), 2) +
-                  Math.pow(sp.y - (py1 + t * dy), 2),
+                Math.pow(sp.y - (py1 + t * dy), 2),
               );
               return d < 8;
             });
@@ -1585,12 +1600,12 @@ export const DrawingCanvas: React.FC = () => {
   }, []);
 
   const snapEnabled = useStore(state => state.snapEnabled);
-  
+
   const snapToGrid = useCallback((val: number) => {
     return Math.round(val / GRID_SIZE) * GRID_SIZE;
   }, []);
 
-  const snapPoint = useCallback((p: {x: number, y: number}, excludeId?: string) => {
+  const snapPoint = useCallback((p: { x: number, y: number }, excludeId?: string) => {
     if (!snapEnabled) return { x: snapToGrid(p.x), y: snapToGrid(p.y) };
 
     const SNAP_DIST = 15;
@@ -1599,7 +1614,7 @@ export const DrawingCanvas: React.FC = () => {
 
     elements.forEach(el => {
       if (el.id === excludeId) return;
-      
+
       const checkNode = (nx: number, ny: number) => {
         const dist = Math.sqrt(Math.pow(p.x - nx, 2) + Math.pow(p.y - ny, 2));
         if (dist < closestDist) {
@@ -1848,6 +1863,7 @@ export const DrawingCanvas: React.FC = () => {
                   onUpdateOffset={onUpdateOffset}
                   handlePointDrag={handlePointDrag}
                   snapPoint={snapPoint}
+                  fontSize={labelFontSize}
                 />
               );
             }
@@ -1879,6 +1895,7 @@ export const DrawingCanvas: React.FC = () => {
                   handleElementSelect={handleElementSelect}
                   moveElements={moveElements}
                   snapPoint={snapPoint}
+                  fontSize={labelFontSize}
                 />
               );
             }
@@ -1955,6 +1972,16 @@ export const DrawingCanvas: React.FC = () => {
           <div className="w-full h-px bg-white/10 my-0.5" />
           <button
             onClick={() =>
+              useStore.setState({ scale: 1, viewPos: { x: 0, y: 0 } })
+            }
+            className="p-2 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-colors"
+            title="Ajustar vista"
+          >
+            <Maximize size={16} />
+          </button>
+          <div className="w-full h-px bg-white/10 my-0.5" />
+          <button
+            onClick={() =>
               useStore.setState({ scale: Math.max(scale / 1.2, 0.1) })
             }
             className="p-2 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-colors"
@@ -1962,6 +1989,10 @@ export const DrawingCanvas: React.FC = () => {
           >
             <ZoomOut size={16} />
           </button>
+          <div className="w-full h-px bg-white/10 my-0.5" />
+          <div className="flex items-center justify-center py-1">
+            <span className="text-[8px] text-gray-500 font-mono">{Math.round(scale * 100)}%</span>
+          </div>
         </div>
       </div>
 
@@ -2103,15 +2134,15 @@ export const DrawingCanvas: React.FC = () => {
             {selectedIds.some(
               (id) => elements.find((el) => el.id === id)?.groupId,
             ) && (
-              <button
-                onClick={handleUngroupAction}
-                className="p-2 text-gray-300 hover:text-orange-400 hover:bg-white/5 rounded-lg transition-all flex flex-col items-center gap-1"
-                title="Desagrupar"
-              >
-                <Layers size={18} />
-                <span className="text-[8px] uppercase">Desagrupar</span>
-              </button>
-            )}
+                <button
+                  onClick={handleUngroupAction}
+                  className="p-2 text-gray-300 hover:text-orange-400 hover:bg-white/5 rounded-lg transition-all flex flex-col items-center gap-1"
+                  title="Desagrupar"
+                >
+                  <Layers size={18} />
+                  <span className="text-[8px] uppercase">Desagrupar</span>
+                </button>
+              )}
 
             <button
               onClick={handleDeleteMany}
@@ -2272,6 +2303,32 @@ export const DrawingCanvas: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+          
+          <div className="mt-6 p-4 bg-white/5 border border-white/10 rounded-2xl">
+            <h4 className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-3">Tamaño de Etiquetas</h4>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setLabelFontSize(Math.max(labelFontSize - 1, 1))}
+                className="p-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl transition-all border border-white/5"
+                title="Achicar etiquetas"
+              >
+                <Minus size={16} />
+              </button>
+              
+              <div className="flex flex-col items-center">
+                <span className="text-xl font-bold text-blue-400">{labelFontSize}</span>
+                <span className="text-[8px] uppercase text-gray-500">puntos</span>
+              </div>
+
+              <button
+                onClick={() => setLabelFontSize(Math.min(labelFontSize + 1, 10))}
+                className="p-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl transition-all border border-white/5"
+                title="Agrandar etiquetas"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
           </div>
 
           <button
