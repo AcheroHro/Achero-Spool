@@ -44,31 +44,31 @@ export const SpoolManager: React.FC<{ user: AppUser | null; onSelect: (spool: Sp
 
   if (!user) {
     return (
-      <div className="p-8 text-center bg-[#1e2024] h-full flex flex-col justify-center">
-        <Layout className="mx-auto mb-4 text-gray-500" size={48} />
-        <p className="text-gray-400">Inicie sesion para administrar proyectos.</p>
+      <div className="p-8 text-center bg-gray-50 dark:bg-[#1e2024] h-full flex flex-col justify-center">
+        <Layout className="mx-auto mb-4 text-gray-400" size={48} />
+        <p className="text-gray-500 dark:text-gray-400">Inicie sesión para administrar proyectos.</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#1a1c1e] text-white">
+    <div className="flex flex-col h-full bg-white dark:bg-[#1a1c1e] text-gray-900 dark:text-white">
       {modal}
 
-      <div className="p-4 border-b border-gray-800">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800">
         <h2 className="text-lg font-bold flex items-center gap-2 mb-3">
           <Folder size={20} className="text-blue-500" />
           Proyectos &amp; Spools
         </h2>
         {/* Search */}
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar spool..."
-            className="w-full bg-[#2c2e33] border-none rounded-lg pl-8 pr-3 py-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none text-gray-300 placeholder-gray-600"
+            className="w-full bg-gray-50 dark:bg-[#2c2e33] border-none rounded-lg pl-8 pr-3 py-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600"
           />
         </div>
       </div>
@@ -82,7 +82,7 @@ export const SpoolManager: React.FC<{ user: AppUser | null; onSelect: (spool: Sp
             onChange={(e) => setNewProjectName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && createProject()}
             placeholder="Nuevo Proyecto..."
-            className="flex-1 bg-[#2c2e33] border-none rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+            className="flex-1 bg-gray-50 dark:bg-[#2c2e33] border border-gray-200 dark:border-transparent rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 dark:text-white"
           />
           <button
             onClick={createProject}
@@ -160,7 +160,8 @@ const ProjectItem: React.FC<{
         viewPos: { x: 0, y: 0 },
         scale: 1,
         layers: useStore.getState().layers,
-        activeLayerId: useStore.getState().activeLayerId
+        activeLayerId: useStore.getState().activeLayerId,
+        labelFontSize: useStore.getState().labelFontSize
       });
       setSpools((current) => [...current, created]);
       setNewSpoolName('');
@@ -221,10 +222,10 @@ const ProjectItem: React.FC<{
   };
 
   return (
-    <div className="bg-[#2c2e33]/50 rounded-xl border border-gray-800 overflow-hidden">
+    <div className="bg-gray-50 dark:bg-[#2c2e33]/50 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
       {itemModal}
       <div
-        className="p-3 flex items-center justify-between cursor-pointer hover:bg-[#2c2e33] transition-colors"
+        className="p-3 flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-[#2c2e33] transition-colors"
         onClick={() => {
           setIsExpanded(!isExpanded);
           if (!isExpanded) {
@@ -255,7 +256,7 @@ const ProjectItem: React.FC<{
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="border-t border-gray-800 bg-[#1e2024]/30"
+            className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1e2024]/30"
           >
             <div className="p-3 space-y-1">
               {filteredSpools.length === 0 && searchQuery && (
@@ -305,7 +306,7 @@ const ProjectItem: React.FC<{
                   onChange={(e) => setNewSpoolName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && createSpool()}
                   placeholder="Nuevo Spool..."
-                  className="flex-1 bg-[#1a1c1e] border-none rounded-md px-2 py-1 text-[10px] outline-none"
+                  className="flex-1 bg-gray-100 dark:bg-[#1a1c1e] border-none rounded-md px-2 py-1 text-[10px] outline-none text-gray-700 dark:text-white"
                 />
                 <button
                   onClick={createSpool}

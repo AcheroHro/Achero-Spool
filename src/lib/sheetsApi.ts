@@ -123,9 +123,40 @@ function buildPayload(action: ApiAction, data: Record<string, unknown>) {
   };
 }
 
-function jsonp<T>(payload: Record<string, unknown>): Promise<T> {
+async function request<T>(payload: Record<string, unknown>): Promise<T> {
   ensureConfigured();
 
+  try {
+    const response = await fetch(APPS_SCRIPT_URL!, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status}`);
+    }
+
+    const result = await response.json() as { ok?: boolean; error?: string; data?: T };
+    if (!result.ok) {
+      throw new Error(result.error || 'Error desconocido de Apps Script');
+    }
+    return result.data as T;
+  } catch (error) {
+    console.error('API Error:', error);
+    // Si falla fetch (posible CORS), intentamos JSONP como último recurso solo si el payload no es gigante
+    const payloadStr = JSON.stringify(payload);
+    if (payloadStr.length < 4000) {
+      return jsonpFallback<T>(payload);
+    }
+    throw new Error('No se pudo conectar con Apps Script. El dibujo puede ser demasiado grande para el transporte actual.');
+  }
+}
+
+function jsonpFallback<T>(payload: Record<string, unknown>): Promise<T> {
   return new Promise((resolve, reject) => {
     const callbackName = `__acheroSheets_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const url = new URL(APPS_SCRIPT_URL!);
@@ -135,7 +166,7 @@ function jsonp<T>(payload: Record<string, unknown>): Promise<T> {
     const script = document.createElement('script');
     const timeout = window.setTimeout(() => {
       cleanup();
-      reject(new Error('Tiempo de espera agotado consultando Google Sheets'));
+      reject(new Error('Tiempo de espera agotado (JSONP Fallback)'));
     }, 20000);
 
     function cleanup() {
@@ -148,7 +179,7 @@ function jsonp<T>(payload: Record<string, unknown>): Promise<T> {
       cleanup();
       const result = response as { ok?: boolean; error?: string; data?: T };
       if (!result.ok) {
-        reject(new Error(result.error || 'Error desconocido de Apps Script'));
+        reject(new Error(result.error || 'Error en respuesta JSONP'));
         return;
       }
       resolve(result.data as T);
@@ -156,7 +187,7 @@ function jsonp<T>(payload: Record<string, unknown>): Promise<T> {
 
     script.onerror = () => {
       cleanup();
-      reject(new Error('No se pudo conectar con Apps Script'));
+      reject(new Error('No se pudo conectar con Apps Script (JSONP Error)'));
     };
 
     script.src = url.toString();
@@ -165,11 +196,11 @@ function jsonp<T>(payload: Record<string, unknown>): Promise<T> {
 }
 
 /** Reintenta una vez antes de propagar el error. */
-async function jsonpWithRetry<T>(payload: Record<string, unknown>, retries = 1): Promise<T> {
+async function requestWithRetry<T>(payload: Record<string, unknown>, retries = 1): Promise<T> {
   try {
-    return await jsonp<T>(payload);
+    return await request<T>(payload);
   } catch (err) {
-    if (retries > 0) return jsonpWithRetry<T>(payload, retries - 1);
+    if (retries > 0) return requestWithRetry<T>(payload, retries - 1);
     throw err;
   }
 }
@@ -178,13 +209,13 @@ async function jsonpWithRetry<T>(payload: Record<string, unknown>, retries = 1):
 
 export const sheetsApi = {
   async listProjects(user: AppUser) {
-    return jsonpWithRetry<ProjectRecord[]>(
+    return requestWithRetry<ProjectRecord[]>(
       buildPayload('listProjects', { ownerId: user.uid, ownerEmail: user.email })
     );
   },
 
   async listSpools(user: AppUser, projectId: string) {
-    return jsonpWithRetry<SpoolRecord[]>(
+    return requestWithRetry<SpoolRecord[]>(
       buildPayload('listSpools', { ownerId: user.uid, ownerEmail: user.email, projectId })
     );
   },
@@ -197,11 +228,11 @@ export const sheetsApi = {
       ownerEmail: user.email,
       createdAt: new Date().toISOString()
     };
-    return jsonpWithRetry<ProjectRecord>(buildPayload('createProject', { project }));
+    return requestWithRetry<ProjectRecord>(buildPayload('createProject', { project }));
   },
 
   async deleteProject(user: AppUser, projectId: string) {
-    await jsonpWithRetry<{ deleted: boolean }>(buildPayload('deleteProject', {
+    await requestWithRetry<{ deleted: boolean }>(buildPayload('deleteProject', {
       ownerId: user.uid,
       ownerEmail: user.email,
       projectId
@@ -220,11 +251,11 @@ export const sheetsApi = {
       createdAt: now,
       updatedAt: now
     };
-    return jsonpWithRetry<SpoolRecord>(buildPayload('createSpool', { spool }));
+    return requestWithRetry<SpoolRecord>(buildPayload('createSpool', { spool }));
   },
 
   async updateSpool(user: AppUser, spool: Pick<SpoolRecord, 'id' | 'projectId' | 'drawingData' | 'bom'>) {
-    await jsonpWithRetry<{ updated: boolean }>(buildPayload('updateSpool', {
+    await requestWithRetry<{ updated: boolean }>(buildPayload('updateSpool', {
       ownerId: user.uid,
       ownerEmail: user.email,
       spool: {
@@ -235,14 +266,14 @@ export const sheetsApi = {
   },
 
   async deleteSpool(user: AppUser, spoolId: string) {
-    await jsonpWithRetry<{ deleted: boolean }>(buildPayload('deleteSpool', {
+    await requestWithRetry<{ deleted: boolean }>(buildPayload('deleteSpool', {
       ownerId: user.uid,
       spoolId
     }));
   },
 
   async renameSpool(user: AppUser, spoolId: string, newName: string) {
-    await jsonpWithRetry<{ renamed: boolean }>(buildPayload('renameSpool', {
+    await requestWithRetry<{ renamed: boolean }>(buildPayload('renameSpool', {
       ownerId: user.uid,
       spoolId,
       newName

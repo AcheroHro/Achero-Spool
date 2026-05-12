@@ -85,6 +85,7 @@ export const Toolbox: React.FC = () => {
     { type: 'valve', icon: Settings2, label: 'Válvula' },
     { type: 'reducer', icon: ReducerIconWrapper, label: 'Reducción' },
     { type: 'reducexc', icon: ReducerIconWrapper, label: 'Red. Exc.' },
+    { type: 'weld', icon: Circle, label: 'Soldadura' },
   ];
 
   const supports: { type: SupportType; icon: any; label: string }[] = [
@@ -92,7 +93,7 @@ export const Toolbox: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col gap-4 p-2 h-full bg-[#16181d] border-l border-white/5 overflow-y-auto">
+    <div className="flex flex-col gap-4 p-2 h-full bg-white dark:bg-[#16181d] border-l border-gray-200 dark:border-white/5 overflow-y-auto">
       <div className="space-y-1">
         <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-2 px-1 text-center">Diámetro</p>
         <div className="flex flex-col gap-1">
@@ -100,7 +101,7 @@ export const Toolbox: React.FC = () => {
             title="Seleccionar diámetro"
             value={currentDiameter}
             onChange={(e) => setDiameter(Number(e.target.value))}
-            className="w-full bg-[#2c2e33] text-white text-[10px] p-2 rounded-lg border border-gray-700 outline-none focus:border-blue-500 appearance-none text-center cursor-pointer"
+            className="w-full bg-gray-50 dark:bg-[#2c2e33] text-gray-900 dark:text-white text-[10px] p-2 rounded-lg border border-gray-200 dark:border-gray-700 outline-none appearance-none text-center cursor-pointer"
           >
             {availableDiameters.map(d => (
               <option key={d} value={d}>{d}"</option>

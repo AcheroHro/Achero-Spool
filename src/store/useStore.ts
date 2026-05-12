@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { nanoid } from 'nanoid';
 
 export type ElementType = 'pipe' | 'accessory' | 'support';
-export type AccessoryType = 'elbow' | 'elbow45' | 'tee' | 'teered' | 'flange' | 'valve' | 'reducer' | 'reducexc';
+export type AccessoryType = 'elbow' | 'elbow45' | 'tee' | 'teered' | 'flange' | 'valve' | 'reducer' | 'reducexc' | 'weld';
 export type SupportType = 'fixed' | 'sliding' | 'guide';
 
 export interface Point {
@@ -75,6 +75,7 @@ interface AppState {
   
   // Label font size state
   labelFontSize: number;
+  theme: 'dark' | 'light';
 
   // Actions
   setNotification: (notif: { message: string, type: 'error' | 'success' } | null) => void;
@@ -110,6 +111,7 @@ interface AppState {
   updateCustomLabel: (elementId: string, labelKey: string, value: string) => void;
   toggleSnap: () => void;
   setLabelFontSize: (size: number) => void;
+  setTheme: (theme: 'dark' | 'light') => void;
 }
 
 export const DEFAULT_LAYER_ID = 'default-layer';
@@ -139,6 +141,8 @@ export const useStore = create<AppState>((set, get) => ({
     { id: DEFAULT_LAYER_ID, name: 'Capa Base', visible: true, locked: false },
     { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: true, locked: false }
   ],
+  theme: 'dark',
+  setTheme: (theme: 'dark' | 'light') => set({ theme }),
   activeLayerId: DEFAULT_LAYER_ID,
   snapEnabled: false,
   labelFontSize: 8,

@@ -44,6 +44,7 @@ const PIPE_STROKE_WIDTH = 4.0;
 const PIPE_HIT_STROKE_WIDTH = 14;
 const ACCESSORY_BASE_SIZE = 30;
 const VALVE_BASE_SIZE = 60;
+const WELD_BALL_RADIUS = 6;
 
 // Helper to calculate label text consistently
 const getPipeLabel = (points: number[], diameter: number) => {
@@ -65,6 +66,7 @@ interface DimensionLabelProps {
   onLabelClick?: (elementId: string) => void;
   isOverlapping?: boolean;
   fontSize: number;
+  theme?: 'dark' | 'light';
 }
 
 const DimensionLabel = React.memo<DimensionLabelProps>(
@@ -79,6 +81,7 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
     onLabelClick,
     isOverlapping,
     fontSize,
+    theme,
   }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -301,7 +304,7 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
           ) : (
             <>
               <Tag
-                fill="#1e2024"
+                fill={theme === 'dark' ? "#1e2024" : "#fff"}
                 cornerRadius={4}
                 stroke={
                   isHovered
@@ -331,7 +334,7 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
                         ? "#20c997"
                         : isSelected
                           ? "#fcc419"
-                          : "#fff"
+                          : theme === 'dark' ? "#fff" : "#212529"
                 }
                 padding={6}
                 fontSize={fontSize}
@@ -368,6 +371,7 @@ const SimpleDimension: React.FC<{
   onUpdateOffset?: (offset: Point) => void;
   currentTool?: string;
   fontSize?: number;
+  theme?: 'dark' | 'light';
 }> = ({
   x1,
   y1,
@@ -385,6 +389,7 @@ const SimpleDimension: React.FC<{
   onUpdateOffset,
   currentTool,
   fontSize = 12,
+  theme,
 }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -570,7 +575,7 @@ const SimpleDimension: React.FC<{
           ) : (
             <>
               <Tag
-                fill="#1a1c1e"
+                fill={theme === 'dark' ? "#1a1c1e" : "#fff"}
                 stroke={
                   isHovered
                     ? "#fff"
@@ -618,7 +623,8 @@ const SupportDimensions: React.FC<{
   overlappingLabels: Set<string>;
   currentTool: string;
   fontSize: number;
-}> = ({ support, allElements, scale, overlappingLabels, currentTool, fontSize }) => {
+  theme?: 'dark' | 'light';
+}> = ({ support, allElements, scale, overlappingLabels, currentTool, fontSize, theme }) => {
   const updateCustomLabel = useStore((s) => s.updateCustomLabel);
   const updateElementLabelOffset = useStore((s) => s.updateElementLabelOffset);
   if (support.type !== "support" || !support.position) return null;
@@ -762,10 +768,11 @@ const PipeElement = React.memo<{
   handlePointDrag: (id: string, pointIndex: 0 | 1, newPoint: Point) => void;
   snapPoint: (p: Point, excludeId?: string) => Point;
   fontSize: number;
+  theme?: 'dark' | 'light';
 }>(({
   el, isSelected, isInGroup, isLocked, isCotasVisible, currentTool,
   pipeNum, scale, overlappingLabels, selectedIds, handleElementSelect, moveElements,
-  onUpdateOffset, handlePointDrag, snapPoint, fontSize
+  onUpdateOffset, handlePointDrag, snapPoint, fontSize, theme
 }) => {
   if (!el.points) return null;
   const [x1, y1, x2, y2] = el.points;
@@ -821,6 +828,7 @@ const PipeElement = React.memo<{
             scale={scale}
             isOverlapping={overlappingLabels.has(`${el.id}-main`)}
             fontSize={fontSize}
+            theme={theme}
           />
         )}
       </Group>
@@ -883,10 +891,12 @@ const NodeElement = React.memo<{
   moveElements: (ids: string[], dx: number, dy: number) => void;
   snapPoint: (p: Point, excludeId?: string) => Point;
   fontSize: number;
+  weldNum?: number;
+  theme?: 'dark' | 'light';
 }>(({
   el, isSelected, isInGroup, isLocked, isCotasVisible, currentTool,
   scale, overlappingLabels, selectedIds, elements, images,
-  handleElementSelect, moveElements, snapPoint, fontSize
+  handleElementSelect, moveElements, snapPoint, fontSize, weldNum, theme
 }) => {
   if (!el.position) return null;
 
@@ -894,7 +904,9 @@ const NodeElement = React.memo<{
     el.type === "accessory"
       ? el.accessoryType === "valve"
         ? VALVE_BASE_SIZE
-        : ACCESSORY_BASE_SIZE
+        : el.accessoryType === "weld"
+          ? WELD_BALL_RADIUS * 2
+          : ACCESSORY_BASE_SIZE
       : 8 + (el.diameter || 2) * 2;
 
   const {
@@ -1065,6 +1077,31 @@ const NodeElement = React.memo<{
             <Line points={[-baseSize / 2, -baseSize / 2, baseSize / 2, -baseSize / 4, baseSize / 2, baseSize / 4, -baseSize / 2, baseSize / 2]} closed fill={isSelected ? "#fff" : "#845ef7"} stroke="#000" strokeWidth={1} opacity={isLocked ? 0.6 : 1} />
           )
         )}
+        {el.type === "accessory" && el.accessoryType === "weld" && (
+          <Group>
+            <Circle 
+              radius={WELD_BALL_RADIUS} 
+              fill="#fff" 
+              stroke={isSelected ? "#fcc419" : "#000"} 
+              strokeWidth={1} 
+              opacity={isLocked ? 0.6 : 1}
+              shadowBlur={isSelected ? 10 : 0}
+              shadowColor="white"
+            />
+            {weldNum !== undefined && (
+              <Text 
+                text={el.customLabels?.weld || weldNum.toString()} 
+                fontSize={WELD_BALL_RADIUS * 1.2} 
+                fill="#000" 
+                x={-WELD_BALL_RADIUS} 
+                y={-WELD_BALL_RADIUS * 0.7} 
+                width={WELD_BALL_RADIUS * 2} 
+                align="center" 
+                fontStyle="bold"
+              />
+            )}
+          </Group>
+        )}
 
         {/* Support visual representation */}
         {el.type === "support" && el.supportType === "fixed" && (
@@ -1143,12 +1180,17 @@ export const DrawingCanvas: React.FC = () => {
     deleteLayer,
     toggleLayerVisibility,
     toggleLayerLock,
-    setActiveLayer,
-    updateCustomLabel,
-    updateElementLabelOffset,
+    theme,
     labelFontSize,
     setLabelFontSize,
+    updateCustomLabel,
+    setActiveLayer
   } = useStore();
+  const colors = {
+    bg: theme === "dark" ? "#0a0b0d" : "#ffffff",
+    grid: theme === "dark" ? "#2c2e33" : "#e9ecef",
+    text: theme === "dark" ? "#ffffff" : "#212529",
+  };
 
   const isCotasVisible = useMemo(() => {
     return layers.find((l) => l.id === COTAS_LAYER_ID)?.visible !== false;
@@ -1392,6 +1434,7 @@ export const DrawingCanvas: React.FC = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [newPipe, setNewPipe] = useState<number[] | null>(null);
   const [editingLength, setEditingLength] = useState<string>("");
+  const [editingWeld, setEditingWeld] = useState<string>("");
   const [editingPrev, setEditingPrev] = useState<string>("");
   const [editingNext, setEditingNext] = useState<string>("");
 
@@ -1425,6 +1468,13 @@ export const DrawingCanvas: React.FC = () => {
     }
   };
 
+  const handleUpdateWeldNumber = () => {
+    if (selectedId && selectedElement?.accessoryType === "weld") {
+      updateCustomLabel(selectedId, "weld", editingWeld.trim());
+      setNotification({ message: "Número de soldadura actualizado", type: "success" });
+      setTimeout(() => setNotification(null), 2000);
+    }
+  };
   const handleUpdateSupportLabels = () => {
     if (selectedId && selectedElement?.type === "support") {
       updateElement(selectedId, {
@@ -1448,6 +1498,18 @@ export const DrawingCanvas: React.FC = () => {
         const d = el.diameter || 2;
         countByDiameter[d] = (countByDiameter[d] || 0) + 1;
         map[el.id] = countByDiameter[d];
+      }
+    });
+    return map;
+  }, [elements]);
+  
+  const weldNumbers = useMemo(() => {
+    const map: Record<string, number> = {};
+    let count = 0;
+    elements.forEach((el) => {
+      if (el.type === "accessory" && el.accessoryType === "weld") {
+        count++;
+        map[el.id] = count;
       }
     });
     return map;
@@ -1577,6 +1639,9 @@ export const DrawingCanvas: React.FC = () => {
         if (singleEl.diameter) {
           addDiameter(singleEl.diameter);
           setDiameter(singleEl.diameter);
+        }
+        if (singleEl.accessoryType === "weld") {
+          setEditingWeld(singleEl.customLabels?.weld || weldNumbers[singleEl.id]?.toString() || "");
         }
       } else if (singleEl?.type === "support") {
         setEditingPrev(singleEl.customLabels?.prev || "");
@@ -1761,7 +1826,8 @@ export const DrawingCanvas: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      className="w-full h-full bg-[#1a1c1e] overflow-hidden touch-none"
+      style={{ backgroundColor: colors.bg }}
+      className="w-full h-full overflow-hidden touch-none"
     >
       <Stage
         width={stageSize.width}
@@ -1820,7 +1886,7 @@ export const DrawingCanvas: React.FC = () => {
             <Line
               key={`v-${i}`}
               points={[i * GRID_SIZE, 0, i * GRID_SIZE, stageSize.height]}
-              stroke="#2c2e33"
+              stroke={colors.grid}
               strokeWidth={1}
             />
           ))}
@@ -1830,7 +1896,7 @@ export const DrawingCanvas: React.FC = () => {
             <Line
               key={`h-${i}`}
               points={[0, i * GRID_SIZE, stageSize.width, i * GRID_SIZE]}
-              stroke="#2c2e33"
+              stroke={colors.grid}
               strokeWidth={1}
             />
           ))}
@@ -1864,6 +1930,7 @@ export const DrawingCanvas: React.FC = () => {
                   handlePointDrag={handlePointDrag}
                   snapPoint={snapPoint}
                   fontSize={labelFontSize}
+                  theme={theme}
                 />
               );
             }
@@ -1896,6 +1963,8 @@ export const DrawingCanvas: React.FC = () => {
                   moveElements={moveElements}
                   snapPoint={snapPoint}
                   fontSize={labelFontSize}
+                  weldNum={weldNumbers[el.id]}
+                  theme={theme}
                 />
               );
             }
@@ -2087,7 +2156,33 @@ export const DrawingCanvas: React.FC = () => {
 
           {selectedIds.length === 1 && selectedElement?.type === "accessory" && (
             <>
-              <div className="flex flex-col flex-shrink-0">
+              {selectedElement.accessoryType === "weld" && (
+                <div className="flex flex-col flex-shrink-0">
+                  <span className="text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-1">
+                    # Soldadura
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      title="Número de soldadura"
+                      value={editingWeld}
+                      onChange={(e) => setEditingWeld(e.target.value)}
+                      className="w-16 bg-black/40 text-white text-[16px] md:text-sm p-2 rounded-lg border border-white/10 outline-none focus:border-blue-500"
+                      placeholder="#"
+                      onBlur={handleUpdateWeldNumber}
+                      onKeyDown={(e) => e.key === "Enter" && handleUpdateWeldNumber()}
+                    />
+                    <button
+                      title="Confirmar número"
+                      onClick={handleUpdateWeldNumber}
+                      className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors flex-shrink-0"
+                    >
+                      <Check size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-col flex-shrink-0 px-2">
                 <span className="text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-1">
                   Rotacion
                 </span>

@@ -41,6 +41,7 @@ export const exportToPDF = (elements: DrawingElement[], spoolName: string, proje
   doc.setLineWidth(0.1);
   doc.rect(5, 5, 287, 200); // Border
 
+  let weldCounter = 0;
   elements.forEach(el => {
     if (el.type === 'pipe' && el.points) {
       doc.setLineWidth(1);
@@ -51,18 +52,36 @@ export const exportToPDF = (elements: DrawingElement[], spoolName: string, proje
         offsetX + el.points[2] * scale,
         offsetY + el.points[3] * scale
       );
-      if (el.label) {
+      const displayLabel = el.customLabels?.main || el.label;
+      if (displayLabel) {
         doc.setFontSize(6);
         doc.setTextColor(100);
-        doc.text(el.label, offsetX + (el.points[0] + el.points[2]) / 2 * scale, offsetY + (el.points[1] + el.points[3]) / 2 * scale - 2);
+        doc.text(displayLabel, offsetX + (el.points[0] + el.points[2]) / 2 * scale, offsetY + (el.points[1] + el.points[3]) / 2 * scale - 2);
       }
     } else if (el.type === 'accessory' && el.position) {
-      doc.setDrawColor(255, 100, 0);
-      doc.setLineWidth(0.5);
-      doc.circle(offsetX + el.position.x * scale, offsetY + el.position.y * scale, 2, 'S');
-      doc.setFontSize(5);
-      doc.setTextColor(0);
-      doc.text(accessoryNames[el.accessoryType || ''] || 'ACC', offsetX + el.position.x * scale + 2, offsetY + el.position.y * scale);
+      if (el.accessoryType === 'weld') {
+        weldCounter++;
+        const weldLabel = el.customLabels?.weld || weldCounter.toString();
+        
+        doc.setDrawColor(0);
+        doc.setFillColor(255, 255, 255);
+        doc.setLineWidth(0.2);
+        doc.circle(offsetX + el.position.x * scale, offsetY + el.position.y * scale, 2.5, 'FD');
+        
+        doc.setFontSize(5);
+        doc.setTextColor(0);
+        doc.text(weldLabel, offsetX + el.position.x * scale, offsetY + el.position.y * scale + 0.8, { align: 'center' });
+      } else {
+        doc.setDrawColor(255, 100, 0);
+        doc.setLineWidth(0.5);
+        doc.circle(offsetX + el.position.x * scale, offsetY + el.position.y * scale, 2, 'S');
+        doc.setFontSize(5);
+        doc.setTextColor(0);
+        const name = accessoryNames[el.accessoryType || ''];
+        if (name) {
+          doc.text(name, offsetX + el.position.x * scale + 2, offsetY + el.position.y * scale);
+        }
+      }
     } else if (el.type === 'support' && el.position) {
       doc.setDrawColor(46, 213, 115);
       doc.setLineWidth(0.5);
@@ -201,24 +220,23 @@ export const exportToDXF = (elements: DrawingElement[], spoolName: string) => {
 };
 
 export const exportToPNG = (spoolName: string, projectName: string): void => {
-  // Konva renders to a <canvas> element inside the Stage container
-  const canvas = document.querySelector<HTMLCanvasElement>('.konvajs-content canvas');
-  if (!canvas) {
-    alert('No se encontró el canvas para exportar.');
+  const container = document.querySelector('.konvajs-content');
+  const canvases = container?.querySelectorAll('canvas');
+  if (!canvases || canvases.length === 0) {
+    alert('No se encontró el contenido del dibujo para exportar.');
     return;
   }
-
-  // Create an offscreen canvas with a white background
+  const firstCanvas = canvases[0];
   const offscreen = document.createElement('canvas');
-  offscreen.width = canvas.width;
-  offscreen.height = canvas.height;
+  offscreen.width = firstCanvas.width;
+  offscreen.height = firstCanvas.height;
   const ctx = offscreen.getContext('2d');
   if (!ctx) return;
-
   ctx.fillStyle = '#0a0b0d';
   ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-  ctx.drawImage(canvas, 0, 0);
-
+  canvases.forEach(canvas => {
+    ctx.drawImage(canvas, 0, 0);
+  });
   const safeFilename = `${projectName}_${spoolName}`.replace(/[<>:"/\\|?*]/g, '_');
   offscreen.toBlob((blob) => {
     if (!blob) return;
