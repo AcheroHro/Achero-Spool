@@ -39,7 +39,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const GRID_SIZE = 5;
+const GRID_SIZE = 2;
 const PIPE_STROKE_WIDTH = 4.0;
 const PIPE_HIT_STROKE_WIDTH = 14;
 const ACCESSORY_BASE_SIZE = 30;
