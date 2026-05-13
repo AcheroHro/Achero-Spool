@@ -1,4 +1,4 @@
-import { DrawingElement } from '../store/useStore';
+import { DrawingElement, useStore } from '../store/useStore';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -220,31 +220,54 @@ export const exportToDXF = (elements: DrawingElement[], spoolName: string) => {
 };
 
 export const exportToPNG = (spoolName: string, projectName: string): void => {
-  const container = document.querySelector('.konvajs-content');
-  const canvases = container?.querySelectorAll('canvas');
-  if (!canvases || canvases.length === 0) {
-    alert('No se encontró el contenido del dibujo para exportar.');
-    return;
-  }
-  const firstCanvas = canvases[0];
-  const offscreen = document.createElement('canvas');
-  offscreen.width = firstCanvas.width;
-  offscreen.height = firstCanvas.height;
-  const ctx = offscreen.getContext('2d');
-  if (!ctx) return;
-  ctx.fillStyle = '#0a0b0d';
-  ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-  canvases.forEach(canvas => {
-    ctx.drawImage(canvas, 0, 0);
-  });
-  const safeFilename = `${projectName}_${spoolName}`.replace(/[<>:"/\\|?*]/g, '_');
-  offscreen.toBlob((blob) => {
-    if (!blob) return;
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${safeFilename}.png`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
-  }, 'image/png');
+  const { setIsExporting } = useStore.getState();
+  
+  // Hide grid before capture
+  setIsExporting(true);
+
+  // Small delay to allow React to re-render without the grid
+  setTimeout(() => {
+    const container = document.querySelector('.konvajs-content');
+    const canvases = container?.querySelectorAll('canvas');
+    if (!canvases || canvases.length === 0) {
+      alert('No se encontró el contenido del dibujo para exportar.');
+      setIsExporting(false);
+      return;
+    }
+    
+    // Create offscreen canvas
+    const firstCanvas = canvases[0];
+    const offscreen = document.createElement('canvas');
+    offscreen.width = firstCanvas.width;
+    offscreen.height = firstCanvas.height;
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) {
+      setIsExporting(false);
+      return;
+    }
+    
+    // Background
+    ctx.fillStyle = '#0a0b0d';
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+    
+    // Draw all layers except the hit graph (Konva usually has a hidden hit canvas)
+    // Actually, we just draw what's visible now (grid should be gone)
+    canvases.forEach(canvas => {
+      ctx.drawImage(canvas, 0, 0);
+    });
+
+    const safeFilename = `${projectName}_${spoolName}`.replace(/[<>:"/\\|?*]/g, '_');
+    offscreen.toBlob((blob) => {
+      // Restore grid
+      setIsExporting(false);
+
+      if (!blob) return;
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${safeFilename}.png`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+    }, 'image/png');
+  }, 50); // 50ms should be enough for a re-render
 };
 

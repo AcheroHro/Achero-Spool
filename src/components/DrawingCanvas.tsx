@@ -286,18 +286,11 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
                     }
                   }}
                   onBlur={() => setIsEditing(false)}
-                  style={{
-                    width: Math.max(60, editValue.length * 8 + 20) + 'px',
-                    padding: '4px',
-                    border: '2px solid #339af0',
-                    borderRadius: '6px',
-                    background: '#1a1c1e',
-                    color: '#fff',
-                    textAlign: 'center',
-                    outline: 'none',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                  }}
+                  className={cn(
+                    "p-1 border-2 border-blue-500 rounded-md text-center outline-none text-sm font-bold shadow-lg",
+                    theme === 'dark' ? "bg-[#1a1c1e] text-white" : "bg-white text-[#212529]"
+                  )}
+                  style={{ width: Math.max(60, editValue.length * 8 + 20) + 'px' }}
                 />
               </div>
             </Html>
@@ -557,17 +550,13 @@ const SimpleDimension: React.FC<{
                     }
                   }}
                   onBlur={() => setIsEditing(false)}
-                  style={{
+                  className={cn(
+                    "p-0.5 border-2 rounded text-center outline-none text-[12px] font-bold shadow-lg",
+                    theme === 'dark' ? "bg-[#1a1c1e] text-white" : "bg-white text-[#212529]"
+                  )}
+                  style={{ 
                     width: Math.max(50, editValue.length * 8 + 16) + 'px',
-                    padding: '2px',
-                    border: `2px solid ${color}`,
-                    borderRadius: '4px',
-                    background: '#1a1c1e',
-                    color: '#fff',
-                    textAlign: 'center',
-                    outline: 'none',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
+                    borderColor: color
                   }}
                 />
               </div>
@@ -1184,7 +1173,8 @@ export const DrawingCanvas: React.FC = () => {
     labelFontSize,
     setLabelFontSize,
     updateCustomLabel,
-    setActiveLayer
+    setActiveLayer,
+    isExporting
   } = useStore();
   const colors = {
     bg: theme === "dark" ? "#0a0b0d" : "#ffffff",
@@ -1826,8 +1816,10 @@ export const DrawingCanvas: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      style={{ backgroundColor: colors.bg }}
-      className="w-full h-full overflow-hidden touch-none"
+      className={cn(
+        "w-full h-full overflow-hidden touch-none transition-colors duration-300",
+        theme === "dark" ? "bg-[#0a0b0d]" : "bg-white"
+      )}
     >
       <Stage
         width={stageSize.width}
@@ -1878,29 +1870,31 @@ export const DrawingCanvas: React.FC = () => {
         x={viewPos.x}
         y={viewPos.y}
       >
-        <Layer>
-          {/* Grid */}
-          {Array.from({
-            length: Math.ceil(stageSize.width / GRID_SIZE) + 1,
-          }).map((_, i) => (
-            <Line
-              key={`v-${i}`}
-              points={[i * GRID_SIZE, 0, i * GRID_SIZE, stageSize.height]}
-              stroke={colors.grid}
-              strokeWidth={1}
-            />
-          ))}
-          {Array.from({
-            length: Math.ceil(stageSize.height / GRID_SIZE) + 1,
-          }).map((_, i) => (
-            <Line
-              key={`h-${i}`}
-              points={[0, i * GRID_SIZE, stageSize.width, i * GRID_SIZE]}
-              stroke={colors.grid}
-              strokeWidth={1}
-            />
-          ))}
-        </Layer>
+        {!isExporting && (
+          <Layer>
+            {/* Grid */}
+            {Array.from({
+              length: Math.ceil(stageSize.width / GRID_SIZE) + 1,
+            }).map((_, i) => (
+              <Line
+                key={`v-${i}`}
+                points={[i * GRID_SIZE, 0, i * GRID_SIZE, stageSize.height]}
+                stroke={colors.grid}
+                strokeWidth={1}
+              />
+            ))}
+            {Array.from({
+              length: Math.ceil(stageSize.height / GRID_SIZE) + 1,
+            }).map((_, i) => (
+              <Line
+                key={`h-${i}`}
+                points={[0, i * GRID_SIZE, stageSize.width, i * GRID_SIZE]}
+                stroke={colors.grid}
+                strokeWidth={1}
+              />
+            ))}
+          </Layer>
+        )}
 
         <Layer>
           {visibleElements.map((el) => {

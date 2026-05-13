@@ -22,7 +22,9 @@ import {
   Maximize,
   Image,
   Sun,
-  Moon
+  Moon,
+  Undo2,
+  Redo2
 } from 'lucide-react';
 import { useStore, DEFAULT_LAYER_ID, COTAS_LAYER_ID, DrawingElement } from './store/useStore';
 import { DrawingCanvas } from './components/DrawingCanvas';
@@ -59,18 +61,16 @@ export default function App() {
   const {
     elements, setDrawing, activeSpoolId, activeSpoolName, activeProjectId, activeProjectName,
     viewPos, scale, setElements, setNotification, notification,
-    layers, activeLayerId, theme, setTheme, labelFontSize
+    layers, activeLayerId, theme, setTheme, labelFontSize,
+    undo, redo
   } = useStore();
 
   const { modal, showPrompt, showConfirm } = useModal();
 
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme]);
+    // El entorno siempre queda en modo oscuro (negro)
+    document.documentElement.classList.add('dark');
+  }, []);
 
   // ─── Dirty tracking ──────────────────────────────────────────────────────
   const prevSpoolIdRef = useRef<string | null>(null);
@@ -284,10 +284,10 @@ export default function App() {
         scale: 1,
         layers: [
           { id: DEFAULT_LAYER_ID, name: 'Capa Base', visible: true, locked: false },
-          { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: true, locked: false }
+          { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: false, locked: false }
         ],
         activeLayerId: DEFAULT_LAYER_ID,
-        labelFontSize: 8
+        labelFontSize: 4
       };
       const spoolRef = await sheetsApi.createSpool(user, targetProjectId, name, initialDrawing);
       setDrawing(initialDrawing);
@@ -348,7 +348,7 @@ export default function App() {
 
   // ─── Main app ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen w-screen bg-white dark:bg-[#0a0b0d] text-gray-900 dark:text-white flex flex-col overflow-hidden font-sans">
+    <div className="h-screen w-screen bg-[#0a0b0d] text-white flex flex-col overflow-hidden font-sans">
       {modal}
       <input
         type="file"
@@ -360,7 +360,7 @@ export default function App() {
       />
 
       {/* Header */}
-      <header className="h-14 bg-white dark:bg-[#16181d] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 shrink-0">
+      <header className="h-14 bg-[#16181d] border-b border-gray-800 flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-400" title="Abrir menú">
             <Menu size={20} />
@@ -383,15 +383,29 @@ export default function App() {
           {activeView !== 'home' && (
             <div className="flex gap-1 mr-2">
               <button
+                onClick={undo}
+                className="p-2 bg-[#2c2e33] rounded-lg text-gray-400 hover:text-white"
+                title="Deshacer"
+              >
+                <Undo2 size={18} />
+              </button>
+              <button
+                onClick={redo}
+                className="p-2 bg-[#2c2e33] rounded-lg text-gray-400 hover:text-white"
+                title="Rehacer"
+              >
+                <Redo2 size={18} />
+              </button>
+              <button
                 onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                className="p-2 bg-gray-100 dark:bg-[#2c2e33] rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-white"
+                className="p-2 bg-[#2c2e33] rounded-lg text-gray-400 hover:text-white"
                 title="Exportar"
               >
                 <FileDown size={18} />
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 bg-gray-100 dark:bg-[#2c2e33] rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-white"
+                className="p-2 bg-[#2c2e33] rounded-lg text-gray-400 hover:text-white"
                 title="Importar DXF"
               >
                 <FileUp size={18} />
@@ -452,7 +466,7 @@ export default function App() {
             initial={{ opacity: 0, scale: 0.9, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -10 }}
-            className="fixed top-16 right-4 z-50 bg-white dark:bg-[#1e2024] border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl p-2 w-52"
+            className="fixed top-16 right-4 z-50 bg-[#1e2024] border border-gray-800 rounded-xl shadow-2xl p-2 w-52"
           >
             <button
               onClick={() => {
@@ -512,7 +526,7 @@ export default function App() {
                 <DrawingCanvas />
 
               </div>
-              <div className="w-20 h-full shrink-0 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-[#16181d] z-20">
+              <div className="w-20 h-full shrink-0 border-l border-gray-800 bg-[#16181d] z-20">
                 <Toolbox />
               </div>
             </motion.div>
@@ -533,7 +547,7 @@ export default function App() {
       </main>
 
       {/* Bottom Nav */}
-      <nav className="h-16 bg-white dark:bg-[#16181d] border-t border-gray-200 dark:border-gray-800 flex items-center justify-around shrink-0 pb-safe">
+      <nav className="h-16 bg-[#16181d] border-t border-gray-800 flex items-center justify-around shrink-0 pb-safe">
         <button
           onClick={() => setActiveView('home')}
           className={`flex flex-col items-center gap-1 ${activeView === 'home' ? 'text-blue-500' : 'text-gray-500'}`}
@@ -574,9 +588,9 @@ export default function App() {
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-[#16181d] z-50 border-r border-gray-200 dark:border-gray-800 flex flex-col"
+              className="fixed inset-y-0 left-0 w-64 bg-[#16181d] z-50 border-r border-gray-800 flex flex-col"
             >
-              <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+              <div className="p-4 border-b border-gray-800 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
                     <PenTool size={18} />
@@ -592,7 +606,7 @@ export default function App() {
               {activeSpoolName && (
                 <div className="mx-4 mt-4 p-3 bg-blue-600/10 border border-blue-500/20 rounded-xl">
                   <p className="text-[9px] text-blue-400 uppercase tracking-widest font-bold mb-0.5">Spool activo</p>
-                  <p className="text-xs text-gray-900 dark:text-white font-medium truncate">{activeSpoolName}</p>
+                  <p className="text-xs text-white font-medium truncate">{activeSpoolName}</p>
                   {activeProjectName && (
                     <p className="text-[10px] text-gray-500 truncate">{activeProjectName}</p>
                   )}
@@ -616,7 +630,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleNewDrawing}
-                    className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300 w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-left transition-colors border border-transparent hover:border-blue-500/30"
+                    className="flex items-center gap-3 text-sm text-gray-300 w-full p-3 hover:bg-gray-800 rounded-lg text-left transition-colors border border-transparent hover:border-blue-500/30"
                   >
                     <Plus size={18} className="text-gray-500" />
                     Dibujo Nuevo
@@ -625,7 +639,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => { saveSpool(false); setIsSidebarOpen(false); }}
-                      className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300 w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-left transition-colors border border-transparent hover:border-emerald-500/30"
+                      className="flex items-center gap-3 text-sm text-gray-300 w-full p-3 hover:bg-gray-800 rounded-lg text-left transition-colors border border-transparent hover:border-emerald-500/30"
                     >
                       <Save size={18} className="text-gray-500" />
                       Guardar Dibujo
@@ -635,10 +649,10 @@ export default function App() {
                     <div className="flex items-center justify-between">
                       <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Configuración</p>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
                       <div className="flex items-center gap-3">
                         {theme === 'dark' ? <Moon size={18} className="text-blue-400" /> : <Sun size={18} className="text-yellow-400" />}
-                        <span className="text-xs text-gray-600 dark:text-gray-300">Modo {theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
+                        <span className="text-xs text-gray-300">Modo {theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
                       </div>
                       <button
                         title={`Cambiar a modo ${theme === 'dark' ? 'claro' : 'oscuro'}`}
@@ -652,7 +666,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+              <div className="p-4 border-t border-gray-800">
                 <button
                   onClick={logout}
                   className="flex items-center gap-3 text-sm text-red-400 w-full p-2 hover:bg-red-900/10 rounded-lg"

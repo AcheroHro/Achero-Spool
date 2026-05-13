@@ -76,6 +76,7 @@ interface AppState {
   // Label font size state
   labelFontSize: number;
   theme: 'dark' | 'light';
+  isExporting: boolean;
 
   // Actions
   setNotification: (notif: { message: string, type: 'error' | 'success' } | null) => void;
@@ -112,6 +113,7 @@ interface AppState {
   toggleSnap: () => void;
   setLabelFontSize: (size: number) => void;
   setTheme: (theme: 'dark' | 'light') => void;
+  setIsExporting: (val: boolean) => void;
 }
 
 export const DEFAULT_LAYER_ID = 'default-layer';
@@ -139,13 +141,15 @@ export const useStore = create<AppState>((set, get) => ({
 
   layers: [
     { id: DEFAULT_LAYER_ID, name: 'Capa Base', visible: true, locked: false },
-    { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: true, locked: false }
+    { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: false, locked: false }
   ],
   theme: 'dark',
   setTheme: (theme: 'dark' | 'light') => set({ theme }),
   activeLayerId: DEFAULT_LAYER_ID,
-  snapEnabled: false,
-  labelFontSize: 8,
+  snapEnabled: true,
+  labelFontSize: 4,
+  isExporting: false,
+  setIsExporting: (val) => set({ isExporting: val }),
 
   setNotification: (notif) => set({ notification: notif }),
 
@@ -423,7 +427,7 @@ export const useStore = create<AppState>((set, get) => ({
         scale: prevState.scale,
         layers: prevState.layers,
         activeLayerId: prevState.activeLayerId,
-        labelFontSize: prevState.labelFontSize || 12,
+        labelFontSize: prevState.labelFontSize || 4,
         historyIndex: historyIndex - 1
       });
     }
@@ -439,7 +443,7 @@ export const useStore = create<AppState>((set, get) => ({
         scale: nextState.scale,
         layers: nextState.layers,
         activeLayerId: nextState.activeLayerId,
-        labelFontSize: nextState.labelFontSize || 12,
+        labelFontSize: nextState.labelFontSize || 4,
         historyIndex: historyIndex + 1
       });
     }
@@ -452,7 +456,7 @@ export const useStore = create<AppState>((set, get) => ({
     selectedId: null,
     layers: [
       { id: DEFAULT_LAYER_ID, name: 'Capa Base', visible: true, locked: false },
-      { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: true, locked: false }
+      { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: false, locked: false }
     ],
     activeLayerId: DEFAULT_LAYER_ID
   }),
@@ -474,7 +478,7 @@ export const useStore = create<AppState>((set, get) => ({
   setDrawing: (state) => {
     const defaultLayers = [
       { id: DEFAULT_LAYER_ID, name: 'Capa Base', visible: true, locked: false },
-      { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: true, locked: false }
+      { id: COTAS_LAYER_ID, name: 'Cotas de Cañerías', visible: false, locked: false }
     ];
     const newState = { 
       elements: state.elements || [], 
@@ -482,7 +486,7 @@ export const useStore = create<AppState>((set, get) => ({
       scale: state.scale || 1,
       layers: state.layers || defaultLayers,
       activeLayerId: state.activeLayerId || DEFAULT_LAYER_ID,
-      labelFontSize: state.labelFontSize || 12,
+      labelFontSize: state.labelFontSize || 4,
     };
     set({ 
       ...newState,

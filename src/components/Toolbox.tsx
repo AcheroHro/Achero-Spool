@@ -93,7 +93,7 @@ export const Toolbox: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col gap-4 p-2 h-full bg-white dark:bg-[#16181d] border-l border-gray-200 dark:border-white/5 overflow-y-auto">
+    <div className="flex flex-col gap-4 p-2 h-full bg-[#16181d] border-l border-white/5 overflow-y-auto">
       <div className="space-y-1">
         <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-2 px-1 text-center">Diámetro</p>
         <div className="flex flex-col gap-1">
@@ -101,7 +101,7 @@ export const Toolbox: React.FC = () => {
             title="Seleccionar diámetro"
             value={currentDiameter}
             onChange={(e) => setDiameter(Number(e.target.value))}
-            className="w-full bg-gray-50 dark:bg-[#2c2e33] text-gray-900 dark:text-white text-[10px] p-2 rounded-lg border border-gray-200 dark:border-gray-700 outline-none appearance-none text-center cursor-pointer"
+            className="w-full bg-[#2c2e33] text-white text-[10px] p-2 rounded-lg border border-gray-700 outline-none appearance-none text-center cursor-pointer"
           >
             {availableDiameters.map(d => (
               <option key={d} value={d}>{d}"</option>
@@ -382,18 +382,11 @@ export const Toolbox: React.FC = () => {
       </div>
 
       <div className="mt-auto space-y-2 border-t border-gray-800 pt-4 px-1">
-        <div className="grid grid-cols-2 gap-1 mb-2">
-          <button 
-            onClick={centerView}
-            className="flex flex-col items-center justify-center p-2 bg-blue-600/10 text-blue-400 rounded-xl hover:bg-blue-600/20 transition-colors border border-blue-600/30"
-          >
-            <Maximize2 size={16} />
-            <span className="text-[8px] uppercase font-bold mt-1">Centrar</span>
-          </button>
+        <div className="flex flex-col gap-1 mb-2">
           <button 
             onClick={toggleSnap}
             className={cn(
-              "flex flex-col items-center justify-center p-2 rounded-xl transition-colors border",
+              "flex flex-col items-center justify-center p-2 rounded-xl transition-colors border w-full",
               snapEnabled 
                 ? "bg-yellow-600/20 text-yellow-400 border-yellow-600/30 hover:bg-yellow-600/30" 
                 : "bg-[#2c2e33] text-gray-400 border-transparent hover:bg-[#343a40]"
@@ -403,14 +396,7 @@ export const Toolbox: React.FC = () => {
             <span className="text-[8px] uppercase font-bold mt-1">Imán {snapEnabled ? 'ON' : 'OFF'}</span>
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-1">
-          <button onClick={undo} title="Deshacer" className="p-2 bg-[#2c2e33] text-gray-400 rounded-lg hover:bg-[#343a40] active:scale-90 transition-transform">
-            <Undo2 size={16} className="mx-auto" />
-          </button>
-          <button onClick={redo} title="Rehacer" className="p-2 bg-[#2c2e33] text-gray-400 rounded-lg hover:bg-[#343a40] active:scale-90 transition-transform">
-            <Redo2 size={16} className="mx-auto" />
-          </button>
-        </div>
+
         <button 
           onClick={handleDelete}
           className={cn(
