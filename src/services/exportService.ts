@@ -220,7 +220,7 @@ export const exportToDXF = (elements: DrawingElement[], spoolName: string) => {
 };
 
 export const exportToPNG = (spoolName: string, projectName: string): void => {
-  const { setIsExporting } = useStore.getState();
+  const { setIsExporting, theme } = useStore.getState();
   
   // Hide grid before capture
   setIsExporting(true);
@@ -247,7 +247,7 @@ export const exportToPNG = (spoolName: string, projectName: string): void => {
     }
     
     // Background
-    ctx.fillStyle = '#0a0b0d';
+    ctx.fillStyle = theme === 'dark' ? '#0a0b0d' : '#ffffff';
     ctx.fillRect(0, 0, offscreen.width, offscreen.height);
     
     // Draw all layers except the hit graph (Konva usually has a hidden hit canvas)
