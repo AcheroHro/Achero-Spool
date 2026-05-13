@@ -419,66 +419,7 @@ const SimpleDimension: React.FC<{
 
     return (
       <Group>
-        {/* Witness lines */}
-        <Line
-          points={[x1, y1, dimP1.x, dimP1.y]}
-          stroke="#495057"
-          strokeWidth={witnessStrokeWidth}
-          opacity={0.6}
-          dash={[1 / scale, 2 / scale]}
-        />
-        <Line
-          points={[x2, y2, dimP2.x, dimP2.y]}
-          stroke="#495057"
-          strokeWidth={witnessStrokeWidth}
-          opacity={0.6}
-          dash={[1 / scale, 2 / scale]}
-        />
-
-        {/* Dimension Line */}
-        <Line
-          points={[dimP1.x, dimP1.y, dimP2.x, dimP2.y]}
-          stroke={color}
-          strokeWidth={dimLineStrokeWidth}
-        />
-
-        {/* Leader line if text is offset from dimension line */}
-        {Math.sqrt(offset.x * offset.x + offset.y * offset.y) > 10 && (
-          <Line
-            points={[midX, midY, labelX, labelY]}
-            stroke={color}
-            strokeWidth={witnessStrokeWidth}
-            dash={[2, 1]}
-            opacity={0.5}
-          />
-        )}
-
-        {/* Filled Arrows */}
-        <Line
-          points={[
-            dimP1.x,
-            dimP1.y,
-            dimP1.x + ux * arrowSize + ((nx * arrowSize) / 2.5) * side,
-            dimP1.y + uy * arrowSize + ((ny * arrowSize) / 2.5) * side,
-            dimP1.x + ux * arrowSize - ((nx * arrowSize) / 2.5) * side,
-            dimP1.y + uy * arrowSize - ((ny * arrowSize) / 2.5) * side,
-          ]}
-          fill={color}
-          closed={true}
-        />
-        <Line
-          points={[
-            dimP2.x,
-            dimP2.y,
-            dimP2.x - ux * arrowSize + ((nx * arrowSize) / 2.5) * side,
-            dimP2.y - uy * arrowSize + ((ny * arrowSize) / 2.5) * side,
-            dimP2.x - ux * arrowSize - ((nx * arrowSize) / 2.5) * side,
-            dimP2.y - uy * arrowSize - ((ny * arrowSize) / 2.5) * side,
-          ]}
-          fill={color}
-          closed={true}
-        />
-
+        {/* Only show label, lines removed per user request */}
         <Label
           x={labelX}
           y={labelY}
