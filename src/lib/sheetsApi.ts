@@ -113,6 +113,57 @@ export function clearLocalBackup(spoolId: string) {
   localStorage.removeItem(`${BACKUP_KEY_PREFIX}${spoolId}`);
 }
 
+// ─── Projects / Spools list cache (for offline mode) ─────────────────────────
+
+const PROJECTS_CACHE_PREFIX = 'achero_spool_projects_';
+const SPOOLS_CACHE_PREFIX   = 'achero_spool_spools_';
+
+/** Tipo ligero: sólo metadatos de spool, sin drawingData (que puede pesar mucho). */
+export type SpoolMeta = Pick<
+  SpoolRecord,
+  'id' | 'projectId' | 'name' | 'ownerId' | 'ownerEmail' | 'createdAt' | 'updatedAt'
+>;
+
+export function saveLocalProjectsCache(userId: string, projects: ProjectRecord[]) {
+  try {
+    localStorage.setItem(
+      `${PROJECTS_CACHE_PREFIX}${userId}`,
+      JSON.stringify({ projects, cachedAt: new Date().toISOString() })
+    );
+  } catch { /* ignore */ }
+}
+
+export function getLocalProjectsCache(
+  userId: string
+): { projects: ProjectRecord[]; cachedAt: string } | null {
+  try {
+    const raw = localStorage.getItem(`${PROJECTS_CACHE_PREFIX}${userId}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+export function saveLocalSpoolsCache(projectId: string, spools: SpoolRecord[]) {
+  try {
+    // Sólo guardamos metadatos, no drawingData (espacio en localStorage)
+    const slim: SpoolMeta[] = spools.map(({ id, projectId: pid, name, ownerId, ownerEmail, createdAt, updatedAt }) => ({
+      id, projectId: pid, name, ownerId, ownerEmail, createdAt, updatedAt
+    }));
+    localStorage.setItem(
+      `${SPOOLS_CACHE_PREFIX}${projectId}`,
+      JSON.stringify({ spools: slim, cachedAt: new Date().toISOString() })
+    );
+  } catch { /* ignore */ }
+}
+
+export function getLocalSpoolsCache(projectId: string): SpoolMeta[] | null {
+  try {
+    const raw = localStorage.getItem(`${SPOOLS_CACHE_PREFIX}${projectId}`);
+    if (!raw) return null;
+    return JSON.parse(raw).spools as SpoolMeta[];
+  } catch { return null; }
+}
+
 // ─── API transport ────────────────────────────────────────────────────────────
 
 function buildPayload(action: ApiAction, data: Record<string, unknown>) {

@@ -27,10 +27,6 @@ import {
   Redo2
 } from 'lucide-react';
 import { useStore, DEFAULT_LAYER_ID, COTAS_LAYER_ID, DrawingElement } from './store/useStore';
-import { DrawingCanvas } from './components/DrawingCanvas';
-import { Toolbox } from './components/Toolbox';
-import { BOM } from './components/BOM';
-import { SpoolManager } from './components/SpoolManager';
 import { useModal } from './components/PromptModal';
 import {
   AppUser,
@@ -43,10 +39,26 @@ import {
   storeUser
 } from './lib/sheetsApi';
 
-import { exportToPDF, exportToDXF, exportToPNG } from './services/exportService';
-import { importFromDXF } from './services/importService';
-
 type ViewMode = 'home' | 'draw' | 'bom';
+
+const DrawingCanvas = React.lazy(() =>
+  import('./components/DrawingCanvas').then((module) => ({ default: module.DrawingCanvas }))
+);
+const Toolbox = React.lazy(() =>
+  import('./components/Toolbox').then((module) => ({ default: module.Toolbox }))
+);
+const BOM = React.lazy(() =>
+  import('./components/BOM').then((module) => ({ default: module.BOM }))
+);
+const SpoolManager = React.lazy(() =>
+  import('./components/SpoolManager').then((module) => ({ default: module.SpoolManager }))
+);
+
+const ViewFallback = () => (
+  <div className="h-full w-full bg-[#1a1c1e] text-gray-500 text-xs flex items-center justify-center">
+    Cargando...
+  </div>
+);
 
 export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -62,7 +74,7 @@ export default function App() {
     elements, setDrawing, activeSpoolId, activeSpoolName, activeProjectId, activeProjectName,
     viewPos, scale, setElements, setNotification, notification,
     layers, activeLayerId, theme, setTheme, labelFontSize,
-    undo, redo
+    history, historyIndex, undo, redo
   } = useStore();
 
   const { modal, showPrompt, showConfirm } = useModal();
@@ -94,6 +106,9 @@ export default function App() {
     const timer = setTimeout(() => setNotification(null), 4000);
     return timer;
   }, [setNotification]);
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex >= 0 && historyIndex < history.length - 1;
 
   // ─── Restore user from localStorage ─────────────────────────────────────
   useEffect(() => {
@@ -200,11 +215,51 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
+      setNotification({ message: 'Importando DXF...', type: 'success' });
+      const { importFromDXF } = await import('./services/importService');
       const imported = await importFromDXF(file);
       setElements(imported);
       showNotif('DXF importado correctamente', 'success');
     } catch (err) {
       showNotif('Error importando DXF: ' + err);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setNotification({ message: 'Preparando PDF...', type: 'success' });
+      const { exportToPDF } = await import('./services/exportService');
+      exportToPDF(elements, activeSpoolName || 'Spool', activeProjectName || 'Proyecto');
+      setIsExportMenuOpen(false);
+      showNotif('PDF exportado', 'success');
+    } catch (error) {
+      showNotif('Error exportando PDF: ' + error);
+    }
+  };
+
+  const handleExportDXF = async () => {
+    try {
+      setNotification({ message: 'Preparando DXF...', type: 'success' });
+      const { exportToDXF } = await import('./services/exportService');
+      exportToDXF(elements, activeSpoolName || 'Spool');
+      setIsExportMenuOpen(false);
+      showNotif('DXF exportado', 'success');
+    } catch (error) {
+      showNotif('Error exportando DXF: ' + error);
+    }
+  };
+
+  const handleExportPNG = async () => {
+    try {
+      setNotification({ message: 'Preparando PNG...', type: 'success' });
+      const { exportToPNG } = await import('./services/exportService');
+      exportToPNG(activeSpoolName || 'Spool', activeProjectName || 'Proyecto');
+      setIsExportMenuOpen(false);
+      showNotif('PNG exportado', 'success');
+    } catch (error) {
+      showNotif('Error exportando PNG: ' + error);
     }
   };
 
@@ -384,14 +439,16 @@ export default function App() {
             <div className="flex gap-1 mr-2">
               <button
                 onClick={undo}
-                className="p-2 bg-[#2c2e33] rounded-lg text-gray-400 hover:text-white"
+                disabled={!canUndo}
+                className="p-2 bg-[#2c2e33] rounded-lg text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400 disabled:cursor-not-allowed"
                 title="Deshacer"
               >
                 <Undo2 size={18} />
               </button>
               <button
                 onClick={redo}
-                className="p-2 bg-[#2c2e33] rounded-lg text-gray-400 hover:text-white"
+                disabled={!canRedo}
+                className="p-2 bg-[#2c2e33] rounded-lg text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400 disabled:cursor-not-allowed"
                 title="Rehacer"
               >
                 <Redo2 size={18} />
@@ -469,27 +526,21 @@ export default function App() {
             className="fixed top-16 right-4 z-50 bg-[#1e2024] border border-gray-800 rounded-xl shadow-2xl p-2 w-52"
           >
             <button
-              onClick={() => {
-                exportToPDF(elements, activeSpoolName || 'Spool', activeProjectName || 'Proyecto');
-                setIsExportMenuOpen(false);
-              }}
+              onClick={handleExportPDF}
               className="w-full text-left px-4 py-3 text-xs hover:bg-white/5 rounded-lg flex items-center gap-3"
             >
               <FileDown size={14} className="text-red-500" />
               Exportar a PDF
             </button>
             <button
-              onClick={() => { exportToDXF(elements, activeSpoolName || 'Spool'); setIsExportMenuOpen(false); }}
+              onClick={handleExportDXF}
               className="w-full text-left px-4 py-3 text-xs hover:bg-white/5 rounded-lg flex items-center gap-3"
             >
               <FileDown size={14} className="text-blue-500" />
               Exportar a DXF
             </button>
             <button
-              onClick={() => {
-                exportToPNG(activeSpoolName || 'Spool', activeProjectName || 'Proyecto');
-                setIsExportMenuOpen(false);
-              }}
+              onClick={handleExportPNG}
               className="w-full text-left px-4 py-3 text-xs hover:bg-white/5 rounded-lg flex items-center gap-3"
             >
               <Image size={14} className="text-green-500" />
@@ -501,6 +552,30 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 relative overflow-hidden">
+        <React.Suspense fallback={<ViewFallback />}>
+        {/*
+          DrawingCanvas is ALWAYS mounted so the Konva canvas node stays in the DOM.
+          PNG export (exportToPNG) queries .konvajs-content — if the canvas is
+          unmounted (e.g. while on BOM view) the query returns null and export fails.
+          We hide/disable it via CSS when not active instead of unmounting it.
+        */}
+        <div
+          className="absolute inset-0 flex flex-row"
+          style={{
+            visibility: activeView === 'draw' ? 'visible' : 'hidden',
+            pointerEvents: activeView === 'draw' ? 'auto' : 'none',
+            zIndex: activeView === 'draw' ? 10 : 0,
+          }}
+        >
+          <div className="flex-1 relative overflow-hidden">
+            <DrawingCanvas />
+          </div>
+          <div className="w-20 h-full shrink-0 border-l border-gray-800 bg-[#16181d] z-20">
+            <Toolbox />
+          </div>
+        </div>
+
+        {/* Home and BOM views animate in/out on top */}
         <AnimatePresence mode="wait">
           {activeView === 'home' && (
             <motion.div
@@ -511,24 +586,6 @@ export default function App() {
               className="absolute inset-0 z-10"
             >
               <SpoolManager user={user} onSelect={handleSelectSpool} />
-            </motion.div>
-          )}
-
-          {activeView === 'draw' && (
-            <motion.div
-              key="draw"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="absolute inset-0 flex flex-row"
-            >
-              <div className="flex-1 relative overflow-hidden">
-                <DrawingCanvas />
-
-              </div>
-              <div className="w-20 h-full shrink-0 border-l border-gray-800 bg-[#16181d] z-20">
-                <Toolbox />
-              </div>
             </motion.div>
           )}
 
@@ -544,6 +601,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        </React.Suspense>
       </main>
 
       {/* Bottom Nav */}

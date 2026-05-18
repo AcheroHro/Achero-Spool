@@ -108,15 +108,6 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
     const labelX = midX + dimOffset.x;
     const labelY = midY + dimOffset.y;
 
-    // Points on the dimension line (offset from the pipe)
-    // Witness lines go from pipe to dimension line
-    const dimX1 = x1 + nx * 30; // Standardize distance
-    const dimY1 = y1 + ny * 30;
-    const dimX2 = x2 + nx * 30;
-    const dimY2 = y2 + ny * 30;
-    const dimMidX = (dimX1 + dimX2) / 2;
-    const dimMidY = (dimY1 + dimY2) / 2;
-
     // Wait for text calculation
     const currentLengthMm = (len * 50).toFixed(0);
     const isCustom = !!el.customLabels?.main;
@@ -133,71 +124,10 @@ const DimensionLabel = React.memo<DimensionLabelProps>(
     if (angle > 90) angle -= 180;
     if (angle < -90) angle += 180;
 
-    // Visual constants
-    const arrowSize = Math.max(5, 10 / scale);
-    const tickSize = Math.max(4, 7 / scale);
-    const dimLineStrokeWidth = Math.max(1.2, 2.2 / scale);
-    const witnessStrokeWidth = Math.max(0.4, 0.7 / scale);
 
     return (
       <Group>
-        {/* Witness Lines */}
-        <Line
-          points={[x1, y1, dimX1, dimY1]}
-          stroke="#495057"
-          strokeWidth={witnessStrokeWidth}
-          opacity={0.5}
-          dash={[2 / scale, 3 / scale]}
-        />
-        <Line
-          points={[x2, y2, dimX2, dimY2]}
-          stroke="#495057"
-          strokeWidth={witnessStrokeWidth}
-          opacity={0.5}
-          dash={[2 / scale, 3 / scale]}
-        />
-
-        {/* Main Dimension Line */}
-        <Line
-          points={[dimX1, dimY1, dimX2, dimY2]}
-          stroke={isSelected ? "#fcc419" : "#6c757d"}
-          strokeWidth={dimLineStrokeWidth}
-        />
-
-        {/* Ticks at ends (often used in architectural/pipe drafting) */}
-        <Line
-          points={[
-            dimX1 - (nx + ux) * tickSize,
-            dimY1 - (ny + uy) * tickSize,
-            dimX1 + (nx + ux) * tickSize,
-            dimY1 + (ny + uy) * tickSize,
-          ]}
-          stroke={isSelected ? "#fcc419" : "#6c757d"}
-          strokeWidth={dimLineStrokeWidth * 1.3}
-        />
-        <Line
-          points={[
-            dimX2 - (nx + ux) * tickSize,
-            dimY2 - (ny + uy) * tickSize,
-            dimX2 + (nx + ux) * tickSize,
-            dimY2 + (ny + uy) * tickSize,
-          ]}
-          stroke={isSelected ? "#fcc419" : "#6c757d"}
-          strokeWidth={dimLineStrokeWidth * 1.3}
-        />
-
-        {/* Leader line to label if it's offset from the center of the dimension line */}
-        {Math.sqrt(
-          Math.pow(labelX - dimMidX, 2) + Math.pow(labelY - dimMidY, 2),
-        ) > 10 && (
-            <Line
-              points={[dimMidX, dimMidY, labelX, labelY]}
-              stroke={isSelected ? "#fcc419" : "#6c757d"}
-              strokeWidth={witnessStrokeWidth}
-              dash={[2, 1]}
-              opacity={0.8}
-            />
-          )}
+        {/* Only label shown — dimension lines removed per user request */}
 
         {/* Draggable Label Container */}
         <Label
@@ -1294,27 +1224,8 @@ export const DrawingCanvas: React.FC = () => {
   }, [visibleElements, elements]);
 
   const overlappingLabels = useMemo(() => {
-    const overlaps = new Set<string>();
-    for (let i = 0; i < dimensionBoxes.length; i++) {
-      for (let j = i + 1; j < dimensionBoxes.length; j++) {
-        const b1 = dimensionBoxes[i];
-        const b2 = dimensionBoxes[j];
-
-        // Simple distance-based circle check for performance, or AABB
-        // Labels are small, so if centers are distance < (w+w)/2 + threshold, flag it
-        const dist = Math.sqrt(
-          Math.pow(b1.x - b2.x, 2) + Math.pow(b1.y - b2.y, 2),
-        );
-        const threshold = (Math.max(b1.w, b1.h) + Math.max(b2.w, b2.h)) / 2 + 5;
-
-        if (dist < threshold) {
-          overlaps.add(b1.id);
-          overlaps.add(b2.id);
-        }
-      }
-    }
-    return overlaps;
-  }, [dimensionBoxes]);
+    return new Set<string>();
+  }, []);
 
   const isLayerLocked = useCallback(
     (layerId?: string) => {

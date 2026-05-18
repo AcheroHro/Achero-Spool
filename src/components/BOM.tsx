@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../store/useStore';
-import { Package, Hash, Ruler } from 'lucide-react';
+import { Package, Hash, Download } from 'lucide-react';
 
 const accessoryNames: Record<string, string> = {
   elbow: 'Codo 90°',
@@ -20,13 +20,13 @@ const supportNames: Record<string, string> = {
 };
 
 export const BOM: React.FC = () => {
-  const { elements } = useStore();
+  const { elements, activeSpoolName } = useStore();
 
   const stats = useMemo(() => {
     const pipesByDiameter: Record<number, { total: number, items: { length: number, id: string; num: number }[] }> = {};
     const accessories: Record<string, { diameters: Record<number, number>, total: number }> = {};
     const supports: Record<string, { diameters: Record<number, number>, total: number }> = {};
-    
+
     const pipeCountByDiameter: Record<number, number> = {};
 
     elements.forEach((el) => {
@@ -36,7 +36,7 @@ export const BOM: React.FC = () => {
           pipesByDiameter[diameter] = { total: 0, items: [] };
         }
         pipeCountByDiameter[diameter] = (pipeCountByDiameter[diameter] || 0) + 1;
-        
+
         let lengthMm = (el.length || 0) * 50;
         if (el.customLabels?.main) {
           const parsed = parseFloat(el.customLabels.main);
@@ -44,10 +44,10 @@ export const BOM: React.FC = () => {
             lengthMm = parsed;
           }
         }
-        
+
         pipesByDiameter[diameter].total += lengthMm;
-        pipesByDiameter[diameter].items.push({ 
-          length: lengthMm, 
+        pipesByDiameter[diameter].items.push({
+          length: lengthMm,
           id: el.id,
           num: pipeCountByDiameter[diameter]
         });
@@ -69,11 +69,64 @@ export const BOM: React.FC = () => {
     return { pipesByDiameter, accessories, supports };
   }, [elements]);
 
+  // ─── CSV Export ─────────────────────────────────────────────────────────────
+  const exportToCSV = () => {
+    const rows: string[] = [];
+    rows.push('Tipo,Descripcion,Diametro,Cantidad/Longitud');
+
+    // Tuberías
+    Object.entries(stats.pipesByDiameter)
+      .sort((a, b) => Number(b[0]) - Number(a[0]))
+      .forEach(([diameter, data]) => {
+        data.items.forEach(item => {
+          rows.push(`Tubería,"Caño #${item.num}","Ø ${diameter}""","${item.length.toFixed(0)} mm"`);
+        });
+        rows.push(`Tubería,"TOTAL Ø ${diameter}""",,${data.total.toFixed(0)} mm`);
+      });
+
+    // Accesorios
+    Object.entries(stats.accessories).forEach(([type, data]) => {
+      Object.entries(data.diameters).forEach(([diameter, count]) => {
+        rows.push(`Accesorio,"${accessoryNames[type] || type}","Ø ${diameter}""","${count} uds"`);
+      });
+    });
+
+    // Soportes
+    Object.entries(stats.supports).forEach(([type, data]) => {
+      Object.entries(data.diameters).forEach(([diameter, count]) => {
+        rows.push(`Soporte,"${supportNames[type] || type}","Ø ${diameter}""","${count} uds"`);
+      });
+    });
+
+    // \uFEFF = BOM UTF-8 para que Excel muestre tildes correctamente
+    const csv = '\uFEFF' + rows.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `BOM_${activeSpoolName || 'spool'}_${date}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#1e2024] p-4 font-mono">
-      <div className="flex items-center gap-2 mb-6 border-b border-gray-800 pb-2">
-        <Package className="text-blue-500" size={20} />
-        <h2 className="text-sm font-bold uppercase tracking-widest text-white">Listado de Materiales (BOM)</h2>
+      <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-2">
+        <div className="flex items-center gap-2">
+          <Package className="text-blue-500" size={20} />
+          <h2 className="text-sm font-bold uppercase tracking-widest text-white">Listado de Materiales</h2>
+        </div>
+        <button
+          onClick={exportToCSV}
+          title="Exportar como CSV (compatible con Excel)"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700/20 hover:bg-emerald-700/40 border border-emerald-600/40 rounded-lg text-emerald-400 text-[10px] font-bold uppercase tracking-wide transition-colors"
+        >
+          <Download size={12} />
+          Exportar CSV
+        </button>
       </div>
 
       <div className="space-y-6 flex-1 overflow-auto pr-2 custom-scrollbar">
@@ -81,22 +134,24 @@ export const BOM: React.FC = () => {
         <div className="space-y-4">
           <p className="text-[10px] text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-1">Tubería / Piping</p>
           {Object.keys(stats.pipesByDiameter).length > 0 ? (
-            Object.entries(stats.pipesByDiameter).sort((a, b) => Number(b[0]) - Number(a[0])).map(([diameter, data]) => (
-              <div key={diameter} className="space-y-2">
-                <div className="flex items-center justify-between bg-blue-600/10 p-2 rounded border border-blue-600/20">
-                  <span className="text-[10px] font-bold text-blue-400">Ø {diameter}"</span>
-                  <span className="text-[10px] text-blue-300">Total: {data.total.toFixed(0)}mm</span>
+            Object.entries(stats.pipesByDiameter)
+              .sort((a, b) => Number(b[0]) - Number(a[0]))
+              .map(([diameter, data]) => (
+                <div key={diameter} className="space-y-2">
+                  <div className="flex items-center justify-between bg-blue-600/10 p-2 rounded border border-blue-600/20">
+                    <span className="text-[10px] font-bold text-blue-400">Ø {diameter}"</span>
+                    <span className="text-[10px] text-blue-300">Total: {data.total.toFixed(0)}mm</span>
+                  </div>
+                  <div className="grid gap-1 pl-2">
+                    {data.items.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between text-[9px] text-gray-400 bg-black/20 p-1.5 rounded">
+                        <span className="font-bold text-gray-300">Caño #{item.num}</span>
+                        <span className="font-mono">{item.length.toFixed(0)}mm</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid gap-1 pl-2">
-                  {data.items.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between text-[9px] text-gray-400 bg-black/20 p-1.5 rounded">
-                      <span className="font-bold text-gray-300">Caño #{item.num}</span>
-                      <span className="font-mono">{item.length.toFixed(0)}mm</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
+              ))
           ) : (
             <p className="text-[10px] text-gray-400 italic">No hay cañerías en el diseño.</p>
           )}
@@ -129,6 +184,7 @@ export const BOM: React.FC = () => {
             )}
           </div>
         </div>
+
         {/* Supports Section */}
         <div className="space-y-4">
           <p className="text-[10px] text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-1">Soportación / Supports</p>

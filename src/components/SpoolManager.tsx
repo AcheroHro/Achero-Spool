@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
-import { Folder, FileText, Plus, Trash2, ChevronRight, Layout, Pencil, Search } from 'lucide-react';
+import { Folder, FileText, Plus, Trash2, ChevronRight, Layout, Pencil, Search, WifiOff, RefreshCw, HardDrive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AppUser, ProjectRecord, sheetsApi, SpoolRecord } from '../lib/sheetsApi';
+import {
+  AppUser, ProjectRecord, sheetsApi, SpoolRecord, SpoolMeta,
+  saveLocalProjectsCache, getLocalProjectsCache,
+  saveLocalSpoolsCache, getLocalSpoolsCache,
+  getLocalBackup
+} from '../lib/sheetsApi';
 import { useModal } from './PromptModal';
 
 export const SpoolManager: React.FC<{ user: AppUser | null; onSelect: (spool: SpoolRecord & { projectName?: string }) => void }> = ({ user, onSelect }) => {
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
+  const [offlineCachedAt, setOfflineCachedAt] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const setNotification = useStore((state) => state.setNotification);
@@ -19,8 +26,19 @@ export const SpoolManager: React.FC<{ user: AppUser | null; onSelect: (spool: Sp
     try {
       const data = await sheetsApi.listProjects(user);
       setProjects(data);
+      saveLocalProjectsCache(user.uid, data); // ← actualizar caché al éxito
+      setIsOffline(false);
+      setOfflineCachedAt(null);
     } catch (error) {
-      setNotification({ message: `Error cargando proyectos: ${error}`, type: 'error' });
+      // Intentar cargar desde caché local
+      const cached = getLocalProjectsCache(user.uid);
+      if (cached) {
+        setProjects(cached.projects);
+        setIsOffline(true);
+        setOfflineCachedAt(cached.cachedAt);
+      } else {
+        setNotification({ message: `Error cargando proyectos: ${error}`, type: 'error' });
+      }
     } finally {
       setLoading(false);
     }
@@ -34,7 +52,9 @@ export const SpoolManager: React.FC<{ user: AppUser | null; onSelect: (spool: Sp
     if (!newProjectName || !user) return;
     try {
       const created = await sheetsApi.createProject(user, newProjectName);
-      setProjects((current) => [...current, created]);
+      const updated = [...projects, created];
+      setProjects(updated);
+      saveLocalProjectsCache(user.uid, updated);
       setNewProjectName('');
       setNotification({ message: 'Proyecto creado', type: 'success' });
     } catch (error) {
@@ -73,20 +93,56 @@ export const SpoolManager: React.FC<{ user: AppUser | null; onSelect: (spool: Sp
         </div>
       </div>
 
+      {/* ── Offline banner ────────────────────────────────────── */}
+      <AnimatePresence>
+        {isOffline && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="mx-4 mt-3 p-2.5 bg-yellow-900/30 border border-yellow-600/40 rounded-xl flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <WifiOff size={14} className="text-yellow-500 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider">Sin conexión — Modo Offline</p>
+                  {offlineCachedAt && (
+                    <p className="text-[9px] text-yellow-700 truncate">
+                      Caché: {new Date(offlineCachedAt).toLocaleString('es-AR')}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={loadProjects}
+                title="Reintentar conexión"
+                className="flex items-center gap-1 text-[9px] text-yellow-400 hover:text-yellow-200 border border-yellow-600/50 rounded-lg px-2 py-1 transition-colors shrink-0"
+              >
+                <RefreshCw size={10} />
+                Reintentar
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex-1 overflow-auto p-4 space-y-4">
-        {/* Create Project Input */}
+        {/* Create Project Input — disabled offline */}
         <div className="flex gap-2">
           <input
             type="text"
             value={newProjectName}
             onChange={(e) => setNewProjectName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && createProject()}
-            placeholder="Nuevo Proyecto..."
-            className="flex-1 bg-[#2c2e33] border border-transparent rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-white"
+            placeholder={isOffline ? 'Sin conexión — no se puede crear' : 'Nuevo Proyecto...'}
+            disabled={isOffline}
+            className="flex-1 bg-[#2c2e33] border border-transparent rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-white disabled:opacity-40 disabled:cursor-not-allowed"
           />
           <button
             onClick={createProject}
-            className="p-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={isOffline}
+            className="p-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             title="Crear proyecto"
           >
             <Plus size={20} />
@@ -103,6 +159,7 @@ export const SpoolManager: React.FC<{ user: AppUser | null; onSelect: (spool: Sp
                 user={user}
                 project={project}
                 searchQuery={searchQuery}
+                isOffline={isOffline}
                 onSelectSpool={onSelect}
                 onDeleteProject={(projectId) => setProjects((current) => current.filter((item) => item.id !== projectId))}
                 showConfirm={showConfirm}
@@ -110,7 +167,9 @@ export const SpoolManager: React.FC<{ user: AppUser | null; onSelect: (spool: Sp
             ))}
             {projects.length === 0 && (
               <div className="p-4 border border-dashed border-gray-800 rounded-lg text-center">
-                <p className="text-xs text-gray-500 italic">No hay proyectos. Crea uno arriba.</p>
+                <p className="text-xs text-gray-500 italic">
+                  {isOffline ? 'Sin caché local disponible.' : 'No hay proyectos. Crea uno arriba.'}
+                </p>
               </div>
             )}
           </div>
@@ -126,11 +185,12 @@ const ProjectItem: React.FC<{
   user: AppUser;
   project: ProjectRecord;
   searchQuery: string;
+  isOffline: boolean;
   onSelectSpool: (spool: SpoolRecord & { projectName?: string }) => void;
   onDeleteProject: (projectId: string) => void;
   showConfirm: ShowConfirm;
-}> = ({ user, project, searchQuery, onSelectSpool, onDeleteProject, showConfirm }) => {
-  const [spools, setSpools] = useState<SpoolRecord[]>([]);
+}> = ({ user, project, searchQuery, isOffline, onSelectSpool, onDeleteProject, showConfirm }) => {
+  const [spools, setSpools] = useState<SpoolMeta[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [newSpoolName, setNewSpoolName] = useState('');
   const setNotification = useStore((state) => state.setNotification);
@@ -143,17 +203,66 @@ const ProjectItem: React.FC<{
 
   useEffect(() => {
     if (!isExpanded) return;
+
+    if (isOffline) {
+      // Modo offline: cargar desde caché local
+      const cached = getLocalSpoolsCache(project.id);
+      if (cached) {
+        setSpools(cached);
+      } else {
+        setSpools([]);
+      }
+      return;
+    }
+
+    // Modo online: cargar desde API y guardar caché
     sheetsApi.listSpools(user, project.id)
-      .then(setSpools)
-      .catch((error) => setNotification({ message: `Error cargando spools: ${error}`, type: 'error' }));
-  }, [isExpanded, project.id, setNotification, user]);
+      .then(data => {
+        setSpools(data);
+        saveLocalSpoolsCache(project.id, data); // ← guardar caché al éxito
+      })
+      .catch((error) => {
+        // Fallback a caché local si la API falla
+        const cached = getLocalSpoolsCache(project.id);
+        if (cached) {
+          setSpools(cached);
+          setNotification({ message: 'Sin conexión: mostrando spools en caché', type: 'error' });
+        } else {
+          setNotification({ message: `Error cargando spools: ${error}`, type: 'error' });
+        }
+      });
+  }, [isExpanded, isOffline, project.id, setNotification, user]);
 
   const filteredSpools = searchQuery
     ? spools.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : spools;
 
+  /** Selecciona un spool: online → usa drawingData del servidor; offline → usa backup local */
+  const handleSpoolSelect = (spoolMeta: SpoolMeta) => {
+    if (isOffline) {
+      const backup = getLocalBackup(spoolMeta.id);
+      if (!backup) {
+        setNotification({
+          message: `Sin respaldo local para "${spoolMeta.name}". Guarda el spool con conexión primero.`,
+          type: 'error'
+        });
+        return;
+      }
+      // Construimos un SpoolRecord completo usando el backup de drawingData
+      const fullSpool: SpoolRecord & { projectName: string } = {
+        ...(spoolMeta as SpoolRecord),
+        drawingData: backup.data,
+        projectName: project.name
+      };
+      onSelectSpool(fullSpool);
+    } else {
+      // Online: spoolMeta es en realidad un SpoolRecord completo (tiene drawingData)
+      onSelectSpool({ ...(spoolMeta as SpoolRecord), projectName: project.name });
+    }
+  };
+
   const createSpool = async () => {
-    if (!newSpoolName) return;
+    if (!newSpoolName || isOffline) return;
     try {
       const created = await sheetsApi.createSpool(user, project.id, newSpoolName, {
         elements: [],
@@ -163,7 +272,9 @@ const ProjectItem: React.FC<{
         activeLayerId: useStore.getState().activeLayerId,
         labelFontSize: useStore.getState().labelFontSize
       });
-      setSpools((current) => [...current, created]);
+      const updated = [...spools, created];
+      setSpools(updated);
+      saveLocalSpoolsCache(project.id, updated as SpoolRecord[]);
       setNewSpoolName('');
       setNotification({ message: 'Spool creado', type: 'success' });
     } catch (error) {
@@ -187,7 +298,7 @@ const ProjectItem: React.FC<{
     }
   };
 
-  const deleteSpool = async (spool: SpoolRecord) => {
+  const deleteSpool = async (spool: SpoolMeta) => {
     const result = await itemShowConfirm({
       title: 'Eliminar spool',
       message: `¿Eliminar "${spool.name}"? Esta acción no se puede deshacer.`,
@@ -196,14 +307,16 @@ const ProjectItem: React.FC<{
     if (!result && result !== '') return;
     try {
       await sheetsApi.deleteSpool(user, spool.id);
-      setSpools((current) => current.filter((s) => s.id !== spool.id));
+      const updated = spools.filter((s) => s.id !== spool.id);
+      setSpools(updated);
+      saveLocalSpoolsCache(project.id, updated as SpoolRecord[]);
       setNotification({ message: 'Spool eliminado', type: 'success' });
     } catch (error) {
       setNotification({ message: `Error eliminando spool: ${error}`, type: 'error' });
     }
   };
 
-  const renameSpool = async (spool: SpoolRecord) => {
+  const renameSpool = async (spool: SpoolMeta) => {
     const result = await showPrompt({
       title: 'Renombrar spool',
       initialValue: spool.name,
@@ -214,7 +327,9 @@ const ProjectItem: React.FC<{
     if (!result) return;
     try {
       await sheetsApi.renameSpool(user, spool.id, result.trim());
-      setSpools((current) => current.map((s) => s.id === spool.id ? { ...s, name: result.trim() } : s));
+      const updated = spools.map((s) => s.id === spool.id ? { ...s, name: result.trim() } : s);
+      setSpools(updated);
+      saveLocalSpoolsCache(project.id, updated as SpoolRecord[]);
       setNotification({ message: 'Spool renombrado', type: 'success' });
     } catch (error) {
       setNotification({ message: `Error renombrando spool: ${error}`, type: 'error' });
@@ -245,7 +360,12 @@ const ProjectItem: React.FC<{
             <span className="text-[10px] bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded-full">{spools.length}</span>
           )}
         </div>
-        <button onClick={(e) => { e.stopPropagation(); deleteProject(); }} className="text-gray-600 hover:text-red-500 p-1 transition-colors" title="Eliminar proyecto">
+        <button
+          onClick={(e) => { e.stopPropagation(); deleteProject(); }}
+          disabled={isOffline}
+          className="text-gray-600 hover:text-red-500 p-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Eliminar proyecto"
+        >
           <Trash2 size={14} />
         </button>
       </div>
@@ -262,59 +382,81 @@ const ProjectItem: React.FC<{
               {filteredSpools.length === 0 && searchQuery && (
                 <p className="text-[10px] text-gray-500 italic px-2 py-1">Sin resultados para "{searchQuery}"</p>
               )}
-              {filteredSpools.map((spool) => (
-                <div
-                  key={spool.id}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-600/10 group transition-colors"
-                >
-                  <FileText size={14} className="text-gray-500 group-hover:text-blue-400 shrink-0" />
-                  <span
-                    className="text-xs flex-1 cursor-pointer"
-                    onClick={() => onSelectSpool({ ...spool, projectName: project.name })}
+              {filteredSpools.length === 0 && !searchQuery && isOffline && (
+                <p className="text-[10px] text-yellow-700 italic px-2 py-1">Sin caché de spools para este proyecto.</p>
+              )}
+              {filteredSpools.map((spool) => {
+                const hasLocalBackup = !!getLocalBackup(spool.id);
+                const canOpen = !isOffline || hasLocalBackup;
+                return (
+                  <div
+                    key={spool.id}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-600/10 group transition-colors"
                   >
-                    {spool.name}
-                  </span>
-                  {/* Action buttons, visible on hover */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      title="Renombrar"
-                      onClick={(e) => { e.stopPropagation(); renameSpool(spool); }}
-                      className="p-1 text-gray-500 hover:text-blue-400 transition-colors"
+                    <FileText size={14} className={`shrink-0 ${canOpen ? 'text-gray-500 group-hover:text-blue-400' : 'text-gray-700'}`} />
+                    <span
+                      className={`text-xs flex-1 ${canOpen ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}`}
+                      title={!canOpen ? 'Sin respaldo local — guarda este spool con conexión primero' : undefined}
+                      onClick={() => canOpen && handleSpoolSelect(spool)}
                     >
-                      <Pencil size={12} />
-                    </button>
-                    <button
-                      title="Eliminar"
-                      onClick={(e) => { e.stopPropagation(); deleteSpool(spool); }}
-                      className="p-1 text-gray-500 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                  <ChevronRight
-                    size={14}
-                    className="text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shrink-0"
-                    onClick={() => onSelectSpool({ ...spool, projectName: project.name })}
-                  />
-                </div>
-              ))}
+                      {spool.name}
+                    </span>
 
-              <div className="pt-2 flex gap-2">
-                <input
-                  type="text"
-                  value={newSpoolName}
-                  onChange={(e) => setNewSpoolName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && createSpool()}
-                  placeholder="Nuevo Spool..."
-                  className="flex-1 bg-[#1a1c1e] border-none rounded-md px-2 py-1 text-[10px] outline-none text-white"
-                />
-                <button
-                  onClick={createSpool}
-                  className="px-3 py-1 bg-blue-600 text-white rounded-md text-[10px] font-bold hover:bg-blue-500 transition-colors"
-                >
-                  CREAR
-                </button>
-              </div>
+                    {/* Indicador de backup local (visible siempre en offline, en hover online) */}
+                    {hasLocalBackup && (
+                      <span title="Respaldo local disponible" className={`text-emerald-600 ${isOffline ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                        <HardDrive size={10} />
+                      </span>
+                    )}
+
+                    {/* Botones de acción — ocultos en offline */}
+                    {!isOffline && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          title="Renombrar"
+                          onClick={(e) => { e.stopPropagation(); renameSpool(spool); }}
+                          className="p-1 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          title="Eliminar"
+                          onClick={(e) => { e.stopPropagation(); deleteSpool(spool); }}
+                          className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    )}
+
+                    <ChevronRight
+                      size={14}
+                      className={`text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ${canOpen ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                      onClick={() => canOpen && handleSpoolSelect(spool)}
+                    />
+                  </div>
+                );
+              })}
+
+              {/* Crear spool — deshabilitado en offline */}
+              {!isOffline && (
+                <div className="pt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={newSpoolName}
+                    onChange={(e) => setNewSpoolName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && createSpool()}
+                    placeholder="Nuevo Spool..."
+                    className="flex-1 bg-[#1a1c1e] border-none rounded-md px-2 py-1 text-[10px] outline-none text-white"
+                  />
+                  <button
+                    onClick={createSpool}
+                    className="px-3 py-1 bg-blue-600 text-white rounded-md text-[10px] font-bold hover:bg-blue-500 transition-colors"
+                  >
+                    CREAR
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

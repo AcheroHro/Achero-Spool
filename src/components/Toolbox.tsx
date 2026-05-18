@@ -33,13 +33,14 @@ export const Toolbox: React.FC = () => {
     currentDiameter, 
     availableDiameters,
     selectedId,
+    selectedIds,
+    elements,
     setTool, 
     setDiameter, 
     addDiameter,
     setSelectedId,
+    setSelectedIds,
     deleteElement,
-    undo, 
-    redo, 
     clearDrawing,
     snapEnabled,
     toggleSnap
@@ -47,14 +48,21 @@ export const Toolbox: React.FC = () => {
 
   const [isAddingDiameter, setIsAddingDiameter] = useState(false);
   const [newDiameter, setNewDiameter] = useState('');
+  const hasSelection = selectedIds.length > 0 || !!selectedId;
+  const hasElements = elements.length > 0;
 
   const handleDelete = () => {
-    if (selectedId) {
-      deleteElement(selectedId);
+    const idsToDelete = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+    if (idsToDelete.length > 0) {
+      idsToDelete.forEach((id) => deleteElement(id));
       setSelectedId(null);
-    } else {
-      clearDrawing();
+      setSelectedIds([]);
+      return;
     }
+
+    if (!hasElements) return;
+    const confirmed = window.confirm('¿Borrar todos los elementos del dibujo actual? Esta acción no se puede deshacer.');
+    if (confirmed) clearDrawing();
   };
 
   const handleAddDiameter = () => {
@@ -90,6 +98,8 @@ export const Toolbox: React.FC = () => {
 
   const supports: { type: SupportType; icon: any; label: string }[] = [
     { type: 'fixed', icon: FixedSupportIcon, label: 'Fijo' },
+    { type: 'sliding', icon: SlidingSupportIcon, label: 'Deslizante' },
+    { type: 'guide', icon: GuideSupportIcon, label: 'Guía' },
   ];
 
   return (
@@ -399,16 +409,19 @@ export const Toolbox: React.FC = () => {
 
         <button 
           onClick={handleDelete}
+          disabled={!hasSelection && !hasElements}
           className={cn(
             "w-full flex flex-col items-center justify-center p-2 rounded-xl transition-colors border",
-            selectedId 
+            hasSelection 
               ? "bg-red-600 text-white border-red-400 shadow-lg shadow-red-900/40" 
-              : "bg-red-900/10 text-red-500 border-red-900/30 hover:bg-red-900/20"
+              : "bg-red-900/10 text-red-500 border-red-900/30 hover:bg-red-900/20",
+            !hasSelection && !hasElements && "opacity-30 cursor-not-allowed hover:bg-red-900/10"
           )}
+          title={hasSelection ? 'Borrar selección' : 'Borrar todo el dibujo'}
         >
           <Trash2 size={16} />
           <span className="text-[8px] uppercase font-bold mt-1">
-            {selectedId ? 'Borrar Seleccion' : 'Borrar Todo'}
+            {hasSelection ? 'Borrar Selección' : 'Borrar Todo'}
           </span>
         </button>
       </div>
